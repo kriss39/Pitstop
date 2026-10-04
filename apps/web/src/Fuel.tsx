@@ -27,7 +27,7 @@ import {
 } from 'viem'
 import { arbitrum, arc, avalanche, base, mainnet, optimism, polygon, type Chain } from 'viem/chains'
 import { Account } from 'viem/tempo'
-import { savedOwner, short, usd, useAgent } from './ui'
+import { decimalValue, savedOwner, short, usd, useAgent } from './ui'
 import { solanaBalances } from './solana'
 import { openConnect, switchChain, useWallet } from './wallet'
 
@@ -122,7 +122,7 @@ export function Fuel() {
     : { symbol: 'USDC', decimals: 6, address: src.usdc }
   const agentOk = isAddress(agent)
   const target = useAgent(agentOk ? agent : undefined)
-  const amountNum = Number(amount)
+  const amountNum = decimalValue(amount)
   // USDC is checked against the minimum before quoting; gas tokens once the quote prices them.
   const amountOk = Number.isFinite(amountNum) && amountNum > 0 && (useNative || amountNum >= MIN_USD)
   const fromAmount = useMemo(() => (amountOk ? parseUnits(amount, pay.decimals) : 0n), [amount, amountOk, pay.decimals])
@@ -349,7 +349,7 @@ export function Fuel() {
               className="swap-amount"
               inputMode="decimal"
               value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(',', '.'))}
+              onChange={(e) => setAmount(e.target.value.replace(',', '.').trim())}
               placeholder="0"
               aria-label={`Amount in ${pay.symbol}`}
             />

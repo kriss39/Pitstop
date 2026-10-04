@@ -23,6 +23,10 @@ export const X_URL = `https://x.com/${X_HANDLE}`
 export const usd = (v: bigint, dp = 2) => Number(formatUnits(v, 6)).toFixed(dp)
 /** Dollars with 4 decimals under $1, so a nearly used-up limit never rounds up to a cent. */
 export const money = (v: bigint) => usd(v, v < 1_000_000n ? 4 : 2)
+/** A plain decimal like "5", "0.25" or ".5" — what parseUnits accepts (no exponents, signs or spaces). */
+export const isDecimal = (s: string) => /^\d*\.?\d*$/.test(s) && /\d/.test(s)
+/** The number in a decimal input, or NaN if it isn't a plain decimal. */
+export const decimalValue = (s: string) => (isDecimal(s) ? Number(s) : NaN)
 export const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
 
 /** Racing-flag status vocabulary. */

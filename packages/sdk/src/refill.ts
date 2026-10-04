@@ -115,11 +115,18 @@ export async function refillIfLow(
   const wallet = createWalletClient({ account, chain: base, transport: http(config.baseRpcUrl) })
   const txHash = await executeFuel({ quote, wallet, client, onStep: (step) => log(`  ${step.step}${'hash' in step ? ` ${step.hash}` : ''}`) })
 
-  // Count the spend before waiting on the bridge, so a crash can't double-send.
+  // The money has left the home wallet: count it now, and always hand the new state back,
+  // so a slow or failed bridge check can't lead to a second send.
   s.sentToday = (BigInt(s.sentToday) + config.amount).toString()
   s.lastRefillAt = Date.now()
 
-  const status = await waitForFuel({ ...config, txHash, fromChain: base.id })
+  let status: FuelStatus
+  try {
+    status = await waitForFuel({ ...config, txHash, fromChain: base.id })
+  } catch (error) {
+    const reason = error instanceof Error ? error.message.split('\n')[0] : String(error)
+    status = { status: 'PENDING', substatusMessage: `Sent, but the bridge status is unknown (${reason}). Check LI.FI Scan.` }
+  }
   log(`  bridge ${status.status}${status.receivedAmount != null ? `, received ${formatUnits(status.receivedAmount, 6)} ${token}` : ''}`)
   return { result: { action: 'refilled', balance, txHash, status }, state: s }
 }

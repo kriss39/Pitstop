@@ -110,41 +110,51 @@ server.registerTool(
       "Send USDC from the agent's home wallet on Base to its Tempo wallet through LI.FI and wait until it arrives (usually seconds). Spends real money: at most 5 USDC per call and REFILL_MAX_PER_DAY per day.",
     inputSchema: { amount: z.number().positive().max(MAX_FUEL).describe(`USDC to send, at most ${MAX_FUEL}`), token: tokenArg },
   },
-  async ({ amount, token }) => {
-    const wallet = agentWallet()
-    const home = store.loadHomeWallet()
-    if (!wallet || !home) return fail('Set AGENT_WALLET and create a home wallet (pnpm home-wallet) first.')
-    const progress: string[] = []
-    try {
-      const { result, state } = await refillIfLow(
-        {
-          ...lifi,
-          agentWallet: wallet,
-          home,
-          token: token ?? AGENT_TOKEN,
-          threshold: 0n,
-          amount: parseUnits(String(amount), 6),
-          maxPerDay: parseUnits(process.env.REFILL_MAX_PER_DAY ?? '6', 6),
-          force: true,
-        },
-        store.loadRefillState(),
-        (m) => progress.push(m.trim()),
-      )
-      store.saveRefillState(state)
-      if (result.action === 'skipped') return fail(`Not fueled: ${result.reason}. Sent today: ${usd(BigInt(state.sentToday))} USDC.`)
-      return text({
-        status: result.status.status,
-        received: result.status.receivedAmount != null ? `${usd(result.status.receivedAmount)} ${token ?? AGENT_TOKEN}` : undefined,
-        sourceTx: `https://basescan.org/tx/${result.txHash}`,
-        tempoTx: result.status.receivingTxHash ? `https://explore.tempo.xyz/tx/${result.status.receivingTxHash}` : undefined,
-        sentTodayUsd: usd(BigInt(state.sentToday)),
-        log: progress,
-      })
-    } catch (error) {
-      return fail(`Refuel failed: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`)
-    }
+  // One refuel at a time: parallel calls would read the same daily total and could overshoot it.
+  ({ amount, token }) => {
+    const run = fuelQueue.then(() => fuelAgent(amount, token))
+    fuelQueue = run.catch(() => {})
+    return run
   },
 )
+
+let fuelQueue: Promise<unknown> = Promise.resolve()
+
+async function fuelAgent(amount: number, token?: FuelTokenSymbol) {
+  const wallet = agentWallet()
+  const home = store.loadHomeWallet()
+  if (!wallet || !home) return fail('Set AGENT_WALLET and create a home wallet (pnpm home-wallet) first.')
+  const progress: string[] = []
+  try {
+    const { result, state } = await refillIfLow(
+      {
+        ...lifi,
+        agentWallet: wallet,
+        home,
+        token: token ?? AGENT_TOKEN,
+        threshold: 0n,
+        amount: parseUnits(String(amount), 6),
+        maxPerDay: parseUnits(process.env.REFILL_MAX_PER_DAY ?? '6', 6),
+        force: true,
+      },
+      store.loadRefillState(),
+      (m) => progress.push(m.trim()),
+    )
+    store.saveRefillState(state)
+    if (result.action === 'skipped') return fail(`Not fueled: ${result.reason}. Sent today: ${usd(BigInt(state.sentToday))} USDC.`)
+    return text({
+      status: result.status.status,
+      note: result.status.substatusMessage,
+      received: result.status.receivedAmount != null ? `${usd(result.status.receivedAmount)} ${token ?? AGENT_TOKEN}` : undefined,
+      sourceTx: `https://basescan.org/tx/${result.txHash}`,
+      tempoTx: result.status.receivingTxHash ? `https://explore.tempo.xyz/tx/${result.status.receivingTxHash}` : undefined,
+      sentTodayUsd: usd(BigInt(state.sentToday)),
+      log: progress,
+    })
+  } catch (error) {
+    return fail(`Refuel failed: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`)
+  }
+}
 
 server.registerTool(
   'key_status',

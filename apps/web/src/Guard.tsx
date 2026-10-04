@@ -17,6 +17,7 @@ import {
   AgentBoard,
   CopyButton,
   countdown,
+  decimalValue,
   owners,
   ownerWallet,
   savedKey,
@@ -78,7 +79,7 @@ export function Guard() {
   }, [keyAddr, keyOk])
   const agent = useAgent(wallet, keyOk ? keyAddr : undefined, true, token)
   const status = agent.status
-  const limitNum = Number(limit)
+  const limitNum = decimalValue(limit)
   const limitOk = Number.isFinite(limitNum) && limitNum > 0 && limitNum <= 1000
   const daysNum = Number(days)
   const daysOk = Number.isInteger(daysNum) && daysNum >= 1 && daysNum <= 365
@@ -370,7 +371,7 @@ export function Guard() {
                   className="swap-amount"
                   inputMode="decimal"
                   value={limit}
-                  onChange={(e) => setLimit(e.target.value.replace(',', '.'))}
+                  onChange={(e) => setLimit(e.target.value.replace(',', '.').trim())}
                   placeholder="0"
                   aria-label="Daily limit"
                 />
