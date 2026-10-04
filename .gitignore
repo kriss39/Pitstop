@@ -15,3 +15,6 @@ dist/
 
 # Agent access keys (private; stay on the agent machine)
 .pitstop/
+
+# Personal Claude Code settings
+.claude/settings.local.json
