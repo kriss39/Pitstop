@@ -126,8 +126,8 @@ const WRONG = [
     fix: 'Fuel',
   },
   {
-    t: 'A wallet with no brakes',
-    d: 'Handing an agent a normal wallet is like handing it your card with no limit. A bug, an endless loop or a web page that tricks the agent can spend everything. A limit written in the agent’s own code can be skipped by that same code.',
+    t: 'The brakes are hard to fit',
+    d: 'A normal wallet is like your card with no limit: a bug, an endless loop or a web page that tricks the agent can spend everything, and a limit in the agent’s own code can be skipped by that code. Tempo can put the limit on-chain, but setting it up today means code or a command line.',
     eg: 'A loop calls a $0.01 API 50,000 times overnight: $500 gone by morning.',
     fix: 'Guard',
   },
@@ -150,7 +150,7 @@ const DOES = [
   {
     k: 'Guard',
     t: 'A daily budget the chain enforces',
-    d: 'Your passkey (Face ID or Touch ID) owns the wallet. The agent gets its own key with a daily limit, one token and an end date. Tempo checks every payment against it and refuses anything over. Only you can change it.',
+    d: 'Set up in the browser with your passkey (Face ID or Touch ID), no code. The agent gets its own key with a daily limit, one token and an end date, using Tempo’s built-in keys. Tempo checks every payment and refuses anything over. Only you can change it.',
     proof: '5th call refused by Tempo',
     href: '/guard',
   },

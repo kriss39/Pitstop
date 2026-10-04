@@ -1,6 +1,6 @@
 # Pitstop: Project Brief (2026-10-04)
 
-Status: Day 6 shipped (2026-10-04): Pit Board redesign (landing, /fuel, /guard, /dashboard, docs), EIP-6963 wallet connect, 0.25% integrator fee, README for judges. Day 5 demo runs end to end: Nansen paid over MPP through the guard until blocked; Telegram alerts live. Day 4 done: auto-refill from the agent's Base home wallet and the MCP server (`fuel_agent`) both fuel the guarded wallet on mainnet. Day 3 guard proven on mainnet: the agent's access key is blocked by the protocol (`SpendingLimitExceeded`) once its daily limit is used. Day 2 deployed: https://fuel.pitstopgas.workers.dev serves the fuel page (Base + Solana), the LI.FI proxy and the D1 agent registry. Solana fuel tested with real funds (2 transfers, ~1 s each). Day 1: first real Base → Tempo fuel (see §13). Day 0: monorepo scaffolded, rules confirmed. Deadline: Colosseum Tempo track, **2026-10-12 23:59 PT** (= 2026-10-13 06:59 UTC).
+Status (2026-10-04, evening): swap-style Fuel with itemized costs and a balance slider, $5 minimum, 0.1% fee on web and agent refills; Guard with browser-created keys and several owner wallets; /stats live usage; day/night theme; security pass (per-chat Telegram watches, no public agents API, strict route checks, proxy locked to the site); 32 unit tests and CI. Day 6 shipped (2026-10-04): Pit Board redesign (landing, /fuel, /guard, /dashboard, docs), EIP-6963 wallet connect, 0.25% integrator fee, README for judges. Day 5 demo runs end to end: Nansen paid over MPP through the guard until blocked; Telegram alerts live. Day 4 done: auto-refill from the agent's Base home wallet and the MCP server (`fuel_agent`) both fuel the guarded wallet on mainnet. Day 3 guard proven on mainnet: the agent's access key is blocked by the protocol (`SpendingLimitExceeded`) once its daily limit is used. Day 2 deployed: https://fuel.pitstopgas.workers.dev serves the fuel page (Base + Solana), the LI.FI proxy and the D1 agent registry. Solana fuel tested with real funds (2 transfers, ~1 s each). Day 1: first real Base → Tempo fuel (see §13). Day 0: monorepo scaffolded, rules confirmed. Deadline: Colosseum Tempo track, **2026-10-12 23:59 PT** (= 2026-10-13 06:59 UTC).
 Legend: ✓ = verified on 2026-10-04 · ▲ = not verified yet; confirm before relying on it.
 
 ---
@@ -19,7 +19,7 @@ Legend: ✓ = verified on 2026-10-04 · ▲ = not verified yet; confirm before r
 - AI agents pay for APIs per call over MPP on Tempo, for example Dune, Nansen and 137+ other services on mpp.dev ✓. To do that, the agent needs stablecoins on Tempo.
 - Most users and agents hold funds elsewhere (Solana, Base, Arbitrum, Ethereum). Today they bridge by hand or fund by card through Tempo's MPP Credits.
 - Nothing lets an agent refuel itself from another chain.
-- Nothing stops an over-eager agent from draining its wallet.
+- Tempo's Account Keychain can cap an agent key on-chain, and the Tempo Wallet CLI exposes it, but setting it up takes code or a CLI and nothing watches the agent afterwards. Without it, nothing stops an over-eager agent from draining its wallet.
 
 ## 3. Solution
 
@@ -28,11 +28,11 @@ Legend: ✓ = verified on 2026-10-04 · ▲ = not verified yet; confirm before r
 | **Fuel** | Any token on 75 LI.FI chains → USDCe/PathUSD on Tempo, delivered to the agent's address, in about 1–2 seconds |
 | **Auto-refill** | When the agent's Tempo balance drops below a floor, its home wallet on another chain tops it up. This runs inside the agent's runtime with its own key, so it is non-custodial |
 | **Guard** | The owner signs once with a passkey. The agent gets an Account Keychain access key with a per-period spending cap, a token allowlist and an expiry ▲. Revocable at any time |
-| **MCP server** | Tools: `fuel_quote`, `fuel_agent`, `get_balance`, `set_limit`, `revoke_key`, `list_mpp_services` |
+| **MCP server** | Tools: `get_balance`, `key_status`, `fuel_quote`, `fuel_agent`, `list_mpp_services`, `guard_link`. Deliberately no tool changes limits: the agent can't loosen its own leash |
 | **Dashboard** | Shows agents, balances, spending against the limit, a funding link (any chain), and alerts |
 
 **Difference from what exists:**
-- **Tempo MPP Credits:** card funding only, no cross-chain crypto, and no guard ▲.
+- **Tempo MPP Credits:** card funding only, no cross-chain crypto ▲. **Tempo Wallet + CLI** already offers access keys with per-key limits and a `fund` command that opens bridges; Pitstop is the cross-chain fuel line, browser setup, auto-refill and monitoring around those keys, not a replacement.
 - **Jumper/LI.FI front-ends:** manual bridging for humans, not agent-native.
 - **LI.FI winners** (DISPATCH, ATLAS, Router402): agents use LI.FI, but none has a protocol-level spending guard.
 
@@ -232,7 +232,7 @@ Reports on the Desktop:
 - **Visual direction "Pit Board"**: monochrome base next to Tempo's black/white, one signal colour (pit-lane yellow `#FFD400`, fill only), racing flags as status (green active, yellow near limit, red blocked, black revoked, chequered expired). Fonts: Big Shoulders Display, Archivo, JetBrains Mono.
 - **Routes**: `/` landing (old `/?to=` funding links still open the fuel page), `/fuel`, `/guard`, `/dashboard`, `/#docs`.
 - **Wallet connect**: EIP-6963 discovery + Phantom, no wagmi/RainbowKit. Phantom's EVM entry is labelled "Phantom (Base)"; connecting switches to Base (adds the chain on error 4902).
-- **Fee**: `PITSTOP_FEE = 0.001` (0.1%, lowered from 0.25% on 2026-10-04) on quotes from the web app; optional (`PITSTOP_FEE`) for agent refills and MCP.
+- **Fee**: `PITSTOP_FEE = 0.001` (0.1%, lowered from 0.25% on 2026-10-04) on quotes from the web app and, by default, on agent refills and MCP (`PITSTOP_FEE=0` turns it off).
 - **Domain stays `fuel.pitstopgas.workers.dev`**: passkeys are bound to the hostname; moving domains would orphan owner passkeys.
 - **Positioning**: other agent wallets describe limits enforced in their backend; Pitstop shows a limit enforced by the Tempo protocol, live.
 
