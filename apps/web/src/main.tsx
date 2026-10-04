@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Dashboard } from './Dashboard'
 import { Docs } from './Docs'
+import { Footer } from './Footer'
 import { Fuel } from './Fuel'
 import { Guard } from './Guard'
 import { Header } from './Header'
@@ -26,6 +27,7 @@ createRoot(document.getElementById('root')!).render(
     <WalletProvider>
       <Header path={path === '/' && search.has('to') ? '/fuel' : path} />
       <Page />
+      <Footer />
     </WalletProvider>
   </StrictMode>,
 )

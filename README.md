@@ -2,7 +2,7 @@
 
 **Refuel your AI agents from any chain in seconds, and keep them on a leash the Tempo protocol enforces.**
 
-Live app: **https://fuel.pitstopgas.workers.dev** · X: [@pitstop_agents](https://x.com/pitstop_agents) · Alerts: [@pitstop_alert_bot](https://t.me/pitstop_alert_bot)
+Live app: **https://fuel.pitstopgas.workers.dev** · X: [@pitstop_agents](https://x.com/pitstop_agents) · Alerts: [@pitstop_alert_bot](https://t.me/pitstop_alert_bot) · Help & feedback: [pitstop.agents@gmail.com](mailto:pitstop.agents@gmail.com)
 
 AI agents now pay for APIs per call over [MPP](https://mpp.dev) on Tempo. Two things stop people from letting them: getting stablecoins onto Tempo from where the money actually is (Solana, Base, Ethereum), and trusting an agent with a wallet at all. Pitstop solves both. It fuels the agent from any chain through LI.FI in about a second, and it gives the agent a spending key whose daily limit, token scope and expiry are enforced by Tempo itself. The owner's passkey is the only thing that can change them.
 

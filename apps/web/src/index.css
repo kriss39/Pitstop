@@ -205,7 +205,7 @@ dialog.sheet::backdrop { background: rgb(0 0 0 / 0.5); }
 .landing section > .shell { width: 100%; }
 .landing section { padding-block: 40px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 20px; }
 .footer { border-top: 1px solid var(--line); padding-block: 28px 48px; font-size: 14px; color: var(--muted); }
-.footer .shell { display: flex; gap: 20px; flex-wrap: wrap; justify-content: space-between; }
+.footer .footer-row { display: flex; gap: 20px; flex-wrap: wrap; justify-content: space-between; }
 
 /* Story: what an agent is and why it needs Pitstop */
 .story { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
@@ -578,3 +578,13 @@ img.avatar { object-fit: cover; background: none; border: 1px solid var(--line);
 .theme-btn:hover { border-color: var(--ink); }
 .theme-btn svg { display: block; }
 .theme-btn.btn { display: inline-flex; align-items: center; text-decoration: none; }
+
+/* Site-wide footer with a help and feedback line */
+.footer { margin-top: 48px; display: flex; flex-direction: column; gap: 24px; }
+.footer > .shell { width: 100%; }
+.help-band { display: flex; gap: 20px; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 22px 24px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.help-band > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 1 360px; }
+.help-band b { color: var(--ink); font-size: 17px; }
+.help-band p { margin: 0; font-size: 15px; line-height: 1.5; }
+.help-band p a { color: var(--ink); }
+.help-band .btn { flex: none; text-decoration: none; }
