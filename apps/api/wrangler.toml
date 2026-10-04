@@ -1,13 +1,22 @@
-name = "pitstop-api"
+name = "pitstop"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 
-# D1 and the cron watcher are added on Day 2 and Day 5.
+# The web app (apps/web/dist) is served from the same Worker, so /lifi and /api are same-origin.
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/lifi/*"]
+
+# Created with `wrangler d1 create pitstop`; paste the id below.
 # [[d1_databases]]
 # binding = "DB"
 # database_name = "pitstop"
 # database_id = ""
-#
+# migrations_dir = "migrations"
+
+# Balance watcher, added on Day 5.
 # [triggers]
 # crons = ["*/5 * * * *"]

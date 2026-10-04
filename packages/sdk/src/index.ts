@@ -11,7 +11,16 @@ export {
   LIFI_API_URL,
   LIFI_DIAMOND,
   LifiError,
+  SOLANA_CHAIN_ID,
   SOURCE_TOKENS,
   waitForFuel,
 } from './fuel.js'
-export type { FuelQuote, FuelQuoteParameters, FuelStatus, FuelStep, LifiOptions } from './fuel.js'
+export type {
+  EvmTransactionRequest,
+  FuelQuote,
+  FuelQuoteParameters,
+  FuelStatus,
+  FuelStep,
+  LifiOptions,
+  SolanaTransactionRequest,
+} from './fuel.js'
