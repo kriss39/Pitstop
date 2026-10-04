@@ -84,7 +84,10 @@ export function Guard() {
   const daysNum = Number(days)
   const daysOk = Number.isInteger(daysNum) && daysNum >= 1 && daysNum <= 365
   const hasGas = agent.balance != null && agent.balance > 0n
-  const active = status?.authorized && !status.revoked
+  const expired = !!status?.authorized && !status.revoked && status.expiry * 1000 < Date.now()
+  const active = status?.authorized && !status.revoked && !expired
+  // A revoked or expired key can't be used again; the owner needs a new one.
+  const deadKey = !!status?.revoked || expired
 
   async function run(fn: () => Promise<void>) {
     setBusy(true)
@@ -205,8 +208,8 @@ export function Guard() {
       ? { label: 'Fuel the wallet first', onClick: () => window.location.assign(`/fuel?to=${wallet}`) }
       : !keyOk
         ? { label: 'Enter the agent key', disabled: true }
-        : status?.revoked
-          ? { label: 'This key is revoked', disabled: true }
+        : deadKey
+          ? { label: expired ? 'This key expired' : 'This key is revoked', disabled: true }
           : !limitOk
             ? { label: 'Enter a daily limit', disabled: true }
             : madeHere && !keySaved && !active
@@ -316,7 +319,7 @@ export function Guard() {
                 {madeHere && <span className="swap-ok">Created in this browser</span>}
               </div>
               <AddressField label="Key" value={keyAddr} onChange={setKeyAddr} placeholder="Agent key address (0x…)" />
-              {!keyOk && (
+              {(!keyOk || deadKey) && !madeHere && (
                 <div className="key-paths">
                   <button className="primary small-btn" onClick={createKeyHere} disabled={busy}>Create a key here</button>
                   <p className="swap-text small">
@@ -423,8 +426,11 @@ export function Guard() {
             )}
           </div>
         )}
-        {status?.revoked && (
-          <p className="swap-foot">A revoked key stays revoked. Run <code>pnpm key --new</code> on the agent’s machine and authorize the new key.</p>
+        {deadKey && (
+          <p className="swap-foot">
+            {expired ? 'This key reached its end date.' : 'A revoked key stays revoked.'} Create a new key above, or run{' '}
+            <code>pnpm key --new</code> on the agent’s machine, then authorize it.
+          </p>
         )}
         <p className="swap-foot">
           {cred

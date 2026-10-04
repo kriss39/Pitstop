@@ -173,7 +173,7 @@ server.registerTool(
     return text({
       wallet,
       key: key.address,
-      state: s.revoked ? 'revoked' : s.authorized ? 'active' : 'not authorized',
+      state: s.revoked ? 'revoked' : !s.authorized ? 'not authorized' : s.expiry * 1000 < Date.now() ? 'expired' : 'active',
       token: AGENT_TOKEN,
       remaining: usd(s.remaining),
       periodEnds: iso(s.periodEnd),
