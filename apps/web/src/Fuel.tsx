@@ -214,7 +214,7 @@ export function Fuel() {
         <p className="eyebrow">01 · Fuel</p>
         <h1 className="title">Refuel an agent on Tempo</h1>
         <p className="lede">
-          Send USDC from Base, Arbitrum, Optimism, Ethereum, Polygon, Avalanche or Solana. The agent receives USDC.e, PathUSD, USDT0 or OUSD on Tempo in seconds. You sign in your own wallet; Pitstop never holds funds.
+          Send USDC from any of seven chains. The agent receives USDC.e, PathUSD, USDT0 or OUSD on Tempo in seconds. You sign in your own wallet; Pitstop never holds funds.
         </p>
       </header>
 

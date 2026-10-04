@@ -90,7 +90,7 @@ const quote = await fuelQuote({
   fromChain: SOURCE_TOKENS.base.chainId,
   fromToken: SOURCE_TOKENS.base.USDC,
   fromAmount: 2_000_000n,        // 2 USDC (6 decimals)
-  fromAddress: myBaseAddress,
+  fromAddress: myAddress,
   toAddress: agentWallet,        // the agent's Tempo wallet
 })
 const hash = await executeFuel({ quote, wallet, client })
@@ -153,7 +153,7 @@ export function Docs() {
                 wallet.
               </li>
               <li>
-                <b>Fuel the wallet.</b> On <a href="/fuel">Fuel</a>, send 1–5 USDC to that address from Base, Arbitrum, Optimism, Ethereum, Polygon, Avalanche or Solana. A little of it pays
+                <b>Fuel the wallet.</b> On <a href="/fuel">Fuel</a>, send 1–5 USDC to that address from any supported chain. A little of it pays
                 Tempo fees.
               </li>
               <li>
@@ -170,7 +170,7 @@ export function Docs() {
           </Section>
 
           <Section id="fuel" title="Fuel an agent">
-            <p>Send USDC from another chain. The agent receives one of four stablecoins on Tempo: USDC.e (default), PathUSD, USDT0 or OUSD.</p>
+            <p>Send USDC from any of the seven chains below. The agent receives one of four stablecoins on Tempo: USDC.e (default), PathUSD, USDT0 or OUSD.</p>
             <div className="table-wrap"><table className="doc-table">
               <thead><tr><th>From</th><th>Wallets</th><th>Typical time</th><th>Route</th></tr></thead>
               <tbody>

@@ -129,7 +129,7 @@ function ConnectButton() {
                 <div className="row">
                   {wrongChain && (
                     <button className="primary small-btn" onClick={() => run(() => switchToBase(w.evm!.wallet.provider))}>
-                      Switch to Base
+                      Switch to a supported network
                     </button>
                   )}
                   <button className="ghost small-btn" onClick={() => w.disconnect('evm')}>
