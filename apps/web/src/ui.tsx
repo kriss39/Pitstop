@@ -16,6 +16,8 @@ import { Account } from 'viem/tempo'
 
 export const APP_URL = 'https://fuel.pitstopgas.workers.dev'
 export const BOT_HANDLE = 'pitstop_alert_bot'
+export const X_HANDLE = 'pitstop_agents'
+export const X_URL = `https://x.com/${X_HANDLE}`
 
 export const usd = (v: bigint, dp = 2) => Number(formatUnits(v, 6)).toFixed(dp)
 /** Dollars with 4 decimals under $1, so a nearly used-up limit never rounds up to a cent. */

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { X_HANDLE, X_URL } from './ui'
 import { CHAIN_NAMES, shortAddress, switchToBase, useWallet, walletLabel } from './wallet'
 
 const LINKS = [
@@ -37,6 +38,11 @@ export function Header({ path }: { path: string }) {
           ))}
         </nav>
         <div className="top-actions">
+          <a className="theme-btn btn" href={X_URL} target="_blank" rel="noreferrer" aria-label={`Pitstop on X (@${X_HANDLE})`} title={`@${X_HANDLE} on X`}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z" />
+            </svg>
+          </a>
           <ThemeToggle />
           <ConnectButton />
         </div>
