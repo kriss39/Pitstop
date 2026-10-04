@@ -1,53 +1,70 @@
 import { agentAccount, getAgentKeyStatus, getBalance, TIP20_DECIMALS, totalUsd } from '@pitstop/sdk'
 import { Mppx, tempo } from 'mppx/client'
 import { formatUnits } from 'viem'
-import { GUARD_URL, loadKey, requireWallet } from './agent-key.js'
+import { AGENT_TOKEN, AGENT_TOKEN_ADDRESS, GUARD_URL, loadKey, requireWallet } from './agent-key.js'
+import { codexPrice, nansenTokenInfo } from './services.js'
 
-// End-to-end demo: an agent researches tokens on Nansen, paying $0.01 per call over MPP
-// with its Pitstop access key, until the owner's daily limit stops it.
-//   pnpm demo [maxCalls=20]
-const maxCalls = Number(process.argv[2] ?? 20)
+// End-to-end demo: a research agent checks tokens with two paid MPP services,
+// Codex for the price ($0.001) and Nansen for token intelligence ($0.01),
+// paying with its Pitstop access key until the owner's daily limit stops it.
+//   pnpm demo [maxTokens=10]
+const maxTokens = Number(process.argv[2] ?? 10)
 const key = loadKey()
 if (!key) throw new Error('No access key. Run: pnpm key')
 const wallet = requireWallet()
 const usd = (v: bigint) => Number(formatUnits(v, TIP20_DECIMALS)).toFixed(4)
 
-const TOKENS: [string, string, string][] = [
-  ['ethereum', '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', 'USDC'],
-  ['ethereum', '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', 'WETH'],
-  ['ethereum', '0x514910771AF9Ca656af840dff83E8264EcF986CA', 'LINK'],
-  ['ethereum', '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984', 'UNI'],
-  ['ethereum', '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9', 'AAVE'],
-  ['base', '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 'USDC (Base)'],
+const TOKENS = [
+  { name: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
+  { name: 'WETH', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' },
+  { name: 'LINK', address: '0x514910771AF9Ca656af840dff83E8264EcF986CA' },
+  { name: 'UNI', address: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984' },
+  { name: 'AAVE', address: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9' },
 ]
 
 const mppx = Mppx.create({ methods: [tempo({ account: agentAccount(key.privateKey, wallet) })], polyfill: false })
+const left = async () => (await getAgentKeyStatus({ wallet, key: key.address, token: AGENT_TOKEN_ADDRESS })).remaining
 
-const start = await getAgentKeyStatus({ wallet, key: key.address })
+const start = await getAgentKeyStatus({ wallet, key: key.address, token: AGENT_TOKEN_ADDRESS })
 const balance = totalUsd(await getBalance({ address: wallet }))
 console.log(`Agent wallet ${wallet}`)
-console.log(`Balance $${usd(balance)} · key ${start.revoked ? 'REVOKED' : start.authorized ? 'active' : 'not authorized'} · limit left today $${usd(start.remaining)}\n`)
+console.log(`Balance $${usd(balance)} · key ${start.revoked ? 'REVOKED' : start.authorized ? 'active' : 'not authorized'} · ${AGENT_TOKEN} left today $${usd(start.remaining)}\n`)
 
-for (let i = 0; i < maxCalls; i++) {
-  const [chain, token, name] = TOKENS[i % TOKENS.length]!
-  process.stdout.write(`#${String(i + 1).padStart(2)} Nansen token info: ${name.padEnd(12)} `)
+/** Runs one paid call; returns false when the guard refused it. */
+async function paid(label: string, price: string, call: () => Promise<string>): Promise<boolean> {
+  process.stdout.write(`  ${label.padEnd(28)} `)
   try {
-    const res = await mppx.fetch('https://api.nansen.ai/api/v1/tgm/token-information', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Payment' },
-      body: JSON.stringify({ chain, token_address: token, timeframe: '1d' }),
-    })
-    const body = (await res.json().catch(() => ({}))) as { data?: { token_details?: { market_cap_usd?: number } } }
-    const cap = body.data?.token_details?.market_cap_usd
-    const left = await getAgentKeyStatus({ wallet, key: key.address })
-    console.log(`paid $0.01 → ${res.status}${cap ? ` · mcap $${(cap / 1e9).toFixed(2)}B` : ''} · limit left $${usd(left.remaining)}`)
+    const result = await call()
+    console.log(`paid ${price} → ${result} · left $${usd(await left())}`)
+    return true
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     const reason = /Account keychain error: (\w+)|AccountKeychainError\((\w+)/.exec(msg)?.slice(1).find(Boolean)
-    console.log(reason ? `BLOCKED by the guard: ${reason}` : `failed: ${msg.split('\n')[0]}`)
     if (reason) {
-      console.log(`\nThe agent hit its daily limit. Only the owner can raise it: ${GUARD_URL}/guard?key=${key.address}`)
-      process.exit(2)
+      console.log(`BLOCKED by the guard: ${reason}`)
+      return false
     }
+    console.log(`failed: ${msg.split('\n')[0]}`)
+    return true
   }
+}
+
+for (const token of TOKENS.slice(0, maxTokens)) {
+  console.log(`${token.name}`)
+  const okPrice = await paid('Codex · price', '$0.001', async () => {
+    const p = await codexPrice(mppx.fetch, { address: token.address, networkId: 1 })
+    return p != null ? `$${p.toFixed(p < 10 ? 4 : 2)}` : 'no price'
+  })
+  if (!okPrice) break
+  const okInfo = await paid('Nansen · token intelligence', '$0.01', async () => {
+    const cap = await nansenTokenInfo(mppx.fetch, { chain: 'ethereum', address: token.address })
+    return cap ? `mcap $${(cap / 1e9).toFixed(2)}B` : 'ok'
+  })
+  if (!okInfo) break
+}
+
+const end = await getAgentKeyStatus({ wallet, key: key.address, token: AGENT_TOKEN_ADDRESS })
+if (end.remaining < 10_000n) {
+  console.log(`\nThe agent hit its daily limit. Only the owner can raise it: ${GUARD_URL}/guard?key=${key.address}`)
+  process.exitCode = 2
 }

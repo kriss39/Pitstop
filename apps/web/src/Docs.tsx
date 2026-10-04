@@ -249,8 +249,9 @@ export function Docs() {
             </p>
             <Code>{PAY_SNIPPET}</Code>
             <Note>
-              Nansen offers several payment methods. Send <code>authorization: Payment</code> so it answers with the Tempo (MPP) option.
-              Find more services on <a href="https://mpp.dev" target="_blank" rel="noreferrer">mpp.dev</a>.
+              Some services need a hint to offer Tempo: send <code>authorization: Payment</code> to Nansen and{' '}
+              <code>x-codex-payment: mpp</code> to Codex. The demo agent pays both: Codex for prices ($0.001) and Nansen for token
+              intelligence ($0.01). Find more services on <a href="https://mpp.dev" target="_blank" rel="noreferrer">mpp.dev</a>.
             </Note>
           </Section>
 
