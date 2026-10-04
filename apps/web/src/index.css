@@ -286,6 +286,50 @@ dialog.sheet::backdrop { background: rgb(0 0 0 / 0.5); }
 .tank { font: 900 56px/0.9 var(--display); font-variant-numeric: tabular-nums; }
 
 
+
+/* Refinement pass (after studying tempo.xyz): calmer type, sentence case, square buttons,
+   fewer boxes, more air. Yellow stays a signal, not the button colour. */
+.display { font: 800 clamp(48px, 7.4vw, 92px)/0.94 var(--display); text-transform: none; letter-spacing: -0.005em; }
+h1.title { font: 700 clamp(36px, 5vw, 56px)/1 var(--body); text-transform: none; letter-spacing: -0.03em; }
+h2.section { font: 700 clamp(30px, 3.6vw, 44px)/1.05 var(--body); text-transform: none; letter-spacing: -0.03em; }
+.story-title { font: 700 24px/1.15 var(--body); text-transform: none; letter-spacing: -0.02em; }
+.problem-title { font: 700 21px/1.2 var(--body); text-transform: none; letter-spacing: -0.015em; }
+.doc-section h2 { font: 700 30px/1.1 var(--body); text-transform: none; letter-spacing: -0.025em; }
+.panel-head h2 { font: 700 20px/1.1 var(--body); text-transform: none; letter-spacing: -0.015em; }
+.lede { font-size: 18px; line-height: 1.55; }
+
+button, .btn { border-radius: 4px; padding: 13px 20px; font-weight: 600; }
+.small-btn { border-radius: 4px; }
+.primary { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.primary:not(:disabled):hover { filter: none; opacity: 0.88; }
+.signal-btn { background: var(--signal); border-color: var(--signal); color: var(--signal-ink); }
+.seg { border-radius: 6px; }
+.seg button { border-radius: 4px; }
+input, textarea { border-radius: 6px; }
+
+.panel, .card, .story-card, .proof a, .doc-flow > div, .doc-steps li { border-radius: 8px; }
+.board, .partner { border-radius: 10px; }
+.landing section { padding-block: 72px; }
+.hero { padding-block: 88px 56px; gap: 56px; }
+.topbar .shell { min-height: 64px; }
+.nav { margin-inline: auto; gap: 8px; }
+.nav a { font-weight: 500; font-size: 15px; }
+.brand { font-size: 24px; }
+
+/* Numbered rows instead of cards (01–04), like a spec list. */
+.rows { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.rows a, .rows div.row-item { display: grid; grid-template-columns: 72px minmax(0, 220px) minmax(0, 1fr) auto; gap: 24px; align-items: baseline; padding: 22px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--ink); }
+.rows .n { font: 600 14px/1 var(--mono); color: var(--muted); }
+.rows b { font: 700 22px/1.1 var(--body); letter-spacing: -0.02em; }
+.rows p { color: var(--muted); }
+.rows .go { font: 500 14px var(--body); color: var(--muted); transition: transform 0.2s ease, color 0.2s ease; }
+.rows a:hover .go { color: var(--ink); transform: translateX(4px); }
+@media (max-width: 860px) {
+  .rows a, .rows div.row-item { grid-template-columns: 48px minmax(0, 1fr); }
+  .rows p { grid-column: 2; }
+  .rows .go { display: none; }
+}
+
 /* Motion: short, purposeful, off for reduced motion (see the media query at the end). */
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
 .rise { animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }

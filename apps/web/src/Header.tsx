@@ -23,7 +23,6 @@ export function Header({ path }: { path: string }) {
             </a>
           ))}
         </nav>
-        <span className="spacer" />
         <ConnectButton />
       </div>
     </header>

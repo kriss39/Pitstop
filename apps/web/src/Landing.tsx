@@ -52,6 +52,8 @@ const PROOF = [
   { v: 'Blocked', t: 'Over the limit', d: 'stopped by Tempo', href: 'https://explore.tempo.xyz/address/0x9Bd4984986D273ee27077C42Fe63dFB712b50bC0' },
 ]
 
+const STEP_LINKS: Record<string, string> = { Fuel: '/fuel', Guard: '/guard', Pay: '/docs#pay', Refill: '/docs#agent' }
+
 const STEPS = [
   { n: '01', t: 'Fuel', d: 'Send USDC from Base or Solana. It lands on Tempo in seconds.' },
   { n: '02', t: 'Guard', d: 'Your passkey sets a daily limit for the agent.' },
@@ -218,7 +220,7 @@ export function Landing() {
               chain, so the agent can’t go past it.
             </p>
             <div className="cta rise d2">
-              <a className="btn primary" href="/fuel">Fuel an agent</a>
+              <a className="btn signal-btn" href="/fuel">Fuel an agent</a>
               <a className="btn" href="/guard">Set a limit</a>
               <a className="btn ghost" href="/docs">How to use</a>
             </div>
@@ -251,13 +253,14 @@ export function Landing() {
           <div className="lane" />
           <h2 className="section">How it works</h2>
           <div className="pitlane" aria-hidden />
-          <div className="steps4">
+          <div className="rows">
             {STEPS.map((s) => (
-              <div className="card lift" key={s.n}>
-                <span className="num">{s.n}</span>
-                <h3>{s.t}</h3>
-                <p className="small muted">{s.d}</p>
-              </div>
+              <a key={s.n} href={STEP_LINKS[s.t] ?? '/docs'}>
+                <span className="n">{s.n}</span>
+                <b>{s.t}</b>
+                <p>{s.d}</p>
+                <span className="go">Learn more →</span>
+              </a>
             ))}
           </div>
         </div>
