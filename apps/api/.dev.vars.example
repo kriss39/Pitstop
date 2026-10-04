@@ -1,0 +1,3 @@
+# Copy to .dev.vars (git-ignored) for `wrangler dev`.
+LIFI_API_KEY=
+TELEGRAM_BOT_TOKEN=

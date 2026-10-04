@@ -1,0 +1,13 @@
+name = "pitstop-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 and the cron watcher are added on Day 2 and Day 5.
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "pitstop"
+# database_id = ""
+#
+# [triggers]
+# crons = ["*/5 * * * *"]
