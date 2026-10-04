@@ -74,7 +74,7 @@ export function Dashboard() {
         pitstop: {
           command: 'node',
           args: ['/path/to/pitstop/packages/mcp/dist/index.js'],
-          env: { AGENT_WALLET: walletOk ? wallet : '0x…', PITSTOP_DIR: '/path/to/.pitstop' },
+          env: { AGENT_WALLET: walletOk ? wallet : '0x…', PITSTOP_AGENT_KEY: '0x… (only if you created the key on Guard)', PITSTOP_DIR: '/path/to/.pitstop' },
         },
       },
     },
