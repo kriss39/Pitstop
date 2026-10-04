@@ -37,10 +37,10 @@ export function Dashboard() {
   const owner = savedOwner()
   const ownerWallet = useMemo(() => (owner ? Account.fromWebAuthnP256(owner).address : undefined), [owner?.publicKey])
   const [wallet, setWallet] = useState(q.get('wallet') ?? ownerWallet ?? '')
-  const [key, setKey] = useState(q.get('key') ?? savedKey.get() ?? '')
+  const [key, setKey] = useState(q.get('key') ?? savedKey.get(q.get('wallet') ?? ownerWallet) ?? '')
   const [token, setToken] = useState<FuelTokenSymbol>(() => {
     const t = q.get('token')
-    return (FUEL_TOKENS as readonly string[]).includes(t ?? '') ? (t as FuelTokenSymbol) : savedToken.get(q.get('key') ?? savedKey.get())
+    return (FUEL_TOKENS as readonly string[]).includes(t ?? '') ? (t as FuelTokenSymbol) : savedToken.get(q.get('key') ?? savedKey.get(q.get('wallet') ?? ownerWallet))
   })
   const walletOk = isAddress(wallet)
   const agent = useAgent(walletOk ? wallet : undefined, isAddress(key) ? key : undefined, true, token)

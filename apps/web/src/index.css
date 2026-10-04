@@ -458,3 +458,7 @@ a.btn.swap-cta { text-decoration: none; }
 .breakdown p { margin: 0; }
 @media (max-width: 480px) { .bd-flow li { grid-template-columns: minmax(0, 1fr) auto; } .bd-u { display: none; } .bd-play { grid-template-columns: 1fr; } }
 .route a { color: var(--muted); font-family: var(--body); }
+.owner-actions { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.remove-box { display: flex; flex-direction: column; gap: 10px; }
+.remove-box p { margin: 0; }
+.bad-text { color: var(--bad); }

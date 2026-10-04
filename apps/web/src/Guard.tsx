@@ -2,44 +2,43 @@ import { authorizeAgentKey, DAY_SECONDS, FUEL_TOKENS, revokeAgentKey, TEMPO_TOKE
 import { useEffect, useMemo, useState } from 'react'
 import { isAddress, parseUnits, type Address, type Hex } from 'viem'
 import { Account, WebAuthnP256 } from 'viem/tempo'
-import { AddressField, AgentBoard, CopyButton, countdown, savedKey, savedLimit, savedToken, short, usd, useAgent } from './ui'
-
-/** The owner's passkey reference. Public data: the private key stays in the authenticator. */
-type OwnerCredential = { id: string; publicKey: Hex; createdAt?: string }
-
-const STORE_KEY = 'pitstop.owner.v1'
-
-function loadOwner(): OwnerCredential | undefined {
-  try {
-    const raw = localStorage.getItem(STORE_KEY)
-    return raw ? (JSON.parse(raw) as OwnerCredential) : undefined
-  } catch {
-    return undefined
-  }
-}
-function saveOwner(cred: OwnerCredential) {
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(cred))
-  } catch {
-    // Storage blocked: the page still works for this session.
-  }
-}
+import {
+  AddressField,
+  AgentBoard,
+  CopyButton,
+  countdown,
+  owners,
+  ownerWallet,
+  savedKey,
+  savedLimit,
+  savedOwner,
+  savedToken,
+  short,
+  usd,
+  useAgent,
+  type OwnerCredential,
+} from './ui'
 
 const txLink = (hash: Hex) => `https://explore.tempo.xyz/tx/${hash}`
 const EXPIRY_DAYS = ['1', '7', '30', '90', '365']
 const keyFromLink = new URLSearchParams(window.location.search).get('key')
 
+/** The daily limit last set for a key on this device, as text for the input. */
+function limitText(key: string) {
+  const known = isAddress(key) ? savedLimit.get(key) : undefined
+  return known != null ? usd(known, known < 1_000_000n ? 4 : 2).replace(/\.?0+$/, '') : '5'
+}
+
 export function Guard() {
-  const [cred, setCred] = useState<OwnerCredential | undefined>(loadOwner)
+  const [cred, setCred] = useState<OwnerCredential | undefined>(savedOwner)
+  const [list, setList] = useState<OwnerCredential[]>(owners.list)
   const [justCreated, setJustCreated] = useState(false)
   const [importText, setImportText] = useState('')
-  const [keyAddr, setKeyAddr] = useState(() => keyFromLink ?? savedKey.get() ?? '')
+  const [keyAddr, setKeyAddr] = useState(() => keyFromLink ?? (cred ? savedKey.get(ownerWallet(cred)) : undefined) ?? '')
   const [showRestore, setShowRestore] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState(false)
   const [token, setToken] = useState<FuelTokenSymbol>(() => savedToken.get(keyAddr))
-  const [limit, setLimit] = useState(() => {
-    const known = keyAddr && isAddress(keyAddr) ? savedLimit.get(keyAddr) : undefined
-    return known != null ? usd(known, known < 1_000_000n ? 4 : 2).replace(/\.?0+$/, '') : '5'
-  })
+  const [limit, setLimit] = useState(() => limitText(keyAddr))
   const [days, setDays] = useState('30')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
@@ -47,6 +46,7 @@ export function Guard() {
   const [confirmRevoke, setConfirmRevoke] = useState(false)
 
   const owner = useMemo(() => (cred ? Account.fromWebAuthnP256(cred) : undefined), [cred])
+  const walletOptions = useMemo(() => list.map((o) => ({ id: o.id, address: ownerWallet(o) })), [list])
   const wallet = owner?.address as Address | undefined
   const keyOk = isAddress(keyAddr)
   // Each key remembers the token it was scoped to on this device.
@@ -77,14 +77,37 @@ export function Guard() {
     }
   }
 
+  /** Makes `next` the active owner wallet (or none) and loads what this device knows about its agent key. */
+  function switchTo(next: OwnerCredential | undefined, key?: string) {
+    if (next) owners.setActive(next.id)
+    setList(owners.list())
+    setCred(next)
+    const k = key ?? (next ? savedKey.get(ownerWallet(next)) : undefined) ?? ''
+    setKeyAddr(k)
+    setLimit(limitText(k))
+    setJustCreated(false)
+    setConfirmRemove(false)
+    setConfirmRevoke(false)
+    setShowRestore(false)
+    setDone(undefined)
+    setError(undefined)
+  }
+
   const createPasskey = () =>
     run(async () => {
-      const c = await WebAuthnP256.createCredential({ label: 'Pitstop owner' })
+      // Number the passkeys so they can be told apart in the passkey manager.
+      const c = await WebAuthnP256.createCredential({ label: list.length ? `Pitstop owner ${list.length + 1}` : 'Pitstop owner' })
       const next = { id: c.id, publicKey: c.publicKey, createdAt: new Date().toISOString().slice(0, 10) }
-      saveOwner(next)
-      setCred(next)
+      owners.add(next)
+      // A brand-new wallet has no key yet, unless the page was opened from an agent's link.
+      switchTo(next, list.length ? '' : (keyFromLink ?? ''))
       setJustCreated(true)
     })
+
+  const removeOwner = () => {
+    owners.remove(cred!.id)
+    switchTo(owners.active())
+  }
 
   const importPasskey = () =>
     run(async () => {
@@ -92,8 +115,9 @@ export function Guard() {
       if (typeof parsed.id !== 'string' || typeof parsed.publicKey !== 'string' || !parsed.publicKey.startsWith('0x'))
         throw new Error('Paste the backup exactly as it was shown when the passkey was created.')
       const next = { id: parsed.id, publicKey: parsed.publicKey as Hex, createdAt: parsed.createdAt }
-      saveOwner(next)
-      setCred(next)
+      owners.add(next)
+      switchTo(next)
+      setImportText('')
     })
 
   const authorize = () =>
@@ -105,7 +129,7 @@ export function Guard() {
         limit: parseUnits(limit, 6),
         expiry: Math.floor(Date.now() / 1000) + daysNum * DAY_SECONDS,
       })
-      savedKey.set(keyAddr)
+      savedKey.set(keyAddr, wallet!)
       savedLimit.set(keyAddr, parseUnits(limit, 6))
       savedToken.set(keyAddr, token)
       setDone({ text: `Key authorized: up to ${limit} ${token} a day for ${days} days.`, hash })
@@ -115,7 +139,7 @@ export function Guard() {
   const changeLimit = () =>
     run(async () => {
       const hash = await updateAgentLimit({ owner: owner!, key: keyAddr as Address, token: TEMPO_TOKENS[token], limit: parseUnits(limit, 6) })
-      savedKey.set(keyAddr)
+      savedKey.set(keyAddr, wallet!)
       savedLimit.set(keyAddr, parseUnits(limit, 6))
       setDone({ text: `Daily limit set to ${limit} ${token}.`, hash })
       await agent.refresh()
@@ -160,23 +184,29 @@ export function Guard() {
       <section className="swap rise d1" aria-label="Guard">
         <div className="swap-box">
           <div className="swap-top">
-            <span className="swap-label">Owner passkey</span>
-            {cred && <span className="swap-ok">✓ Ready</span>}
+            <span className="swap-label">{cred ? 'Owner wallet' : 'Owner passkey'}</span>
+            {cred && list.length > 1 ? (
+              <label className="chip-select small">
+                <span className="sr-only">Switch owner wallet</span>
+                <select value={cred.id} onChange={(e) => switchTo(list.find((o) => o.id === e.target.value))} disabled={busy}>
+                  {walletOptions.map((o, i) => (
+                    <option key={o.id} value={o.id}>
+                      Wallet {i + 1} · {short(o.address)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              cred && <span className="swap-ok">✓ Ready</span>
+            )}
           </div>
           {!cred ? (
             <>
               <p className="swap-text">
                 Your passkey (Touch ID, Face ID or a security key) owns the agent’s wallet. No seed phrase, and nothing for Pitstop to store.
               </p>
-              {!showRestore ? (
+              {!showRestore && (
                 <button className="link-btn" onClick={() => setShowRestore(true)}>I already have one: restore from backup</button>
-              ) : (
-                <>
-                  <textarea id="import" rows={3} value={importText} onChange={(e) => setImportText(e.target.value)} placeholder='{"id":"…","publicKey":"0x…"}' />
-                  <div className="row">
-                    <button className="ghost small-btn" onClick={importPasskey} disabled={busy || !importText}>Restore</button>
-                  </div>
-                </>
               )}
             </>
           ) : (
@@ -188,12 +218,46 @@ export function Guard() {
                 <a className="link-btn" href={`/fuel?to=${wallet}`}>· fuel</a>
               </div>
               {justCreated && <p className="note ok small">Passkey created and saved in your device’s passkey manager.</p>}
+              <div className="owner-actions">
+                <button className="link-btn" onClick={createPasskey} disabled={busy}>+ New wallet</button>
+                <button className="link-btn" onClick={() => setShowRestore((v) => !v)} disabled={busy}>Restore a wallet</button>
+                <button className="link-btn danger-link" onClick={() => setConfirmRemove(true)} disabled={busy}>Remove from this device</button>
+              </div>
+              {confirmRemove && (
+                <div className="note warn remove-box" role="alertdialog" aria-label="Remove this wallet from this device">
+                  <p>
+                    <b>This only removes {short(wallet!)} from this browser.</b> The wallet and its money stay on Tempo, the passkey stays
+                    in your passkey manager, and {active ? 'the agent key keeps working until you revoke it or it expires' : 'nothing changes on-chain'}.
+                    To bring it back, restore it from the backup.
+                  </p>
+                  {(active || (agent.balance ?? 0n) > 0n) && (
+                    <p className="bad-text">
+                      {active ? 'Its agent key is still active. Revoke it first if you’re done with this agent. ' : ''}
+                      {(agent.balance ?? 0n) > 0n ? `It still holds $${usd(agent.balance!)}.` : ''}
+                    </p>
+                  )}
+                  <div className="row">
+                    <CopyButton text={JSON.stringify(cred)} label="Copy backup first" />
+                    <button className="danger solid small-btn" onClick={removeOwner}>Remove</button>
+                    <button className="ghost small-btn" onClick={() => setConfirmRemove(false)}>Cancel</button>
+                  </div>
+                </div>
+              )}
               <details>
                 <summary>Backup for another device (no secrets inside)</summary>
                 <p className="small muted">Browsers don’t return a passkey’s public key later, so save this to find your wallet on another device.</p>
                 <code className="block">{JSON.stringify(cred)}</code>
                 <div className="row"><CopyButton text={JSON.stringify(cred)} label="Copy backup" /></div>
               </details>
+            </>
+          )}
+          {showRestore && (
+            <>
+              <textarea id="import" rows={3} value={importText} onChange={(e) => setImportText(e.target.value)} placeholder='Paste the backup: {"id":"…","publicKey":"0x…"}' />
+              <div className="row">
+                <button className="ghost small-btn" onClick={importPasskey} disabled={busy || !importText}>Restore</button>
+                <button className="link-btn" onClick={() => setShowRestore(false)}>Cancel</button>
+              </div>
             </>
           )}
         </div>

@@ -10,7 +10,8 @@ import {
   type Spend,
 } from '@pitstop/sdk'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { formatUnits, isAddress, type Address } from 'viem'
+import { formatUnits, isAddress, type Address, type Hex } from 'viem'
+import { Account } from 'viem/tempo'
 
 export const APP_URL = 'https://fuel.pitstopgas.workers.dev'
 export const BOT_HANDLE = 'pitstop_alert_bot'
@@ -217,18 +218,19 @@ export function AgentBoard({ data, keyAddress, tag = 'P1' }: { data: AgentData; 
   )
 }
 
-/** Remembers the owner's last agent key so the dashboard can find it. */
+/** Remembers each wallet's agent key on this device, so Guard and the dashboard can find it. */
 export const savedKey = {
-  get(): string | undefined {
+  get(wallet?: string): string | undefined {
+    if (!wallet) return undefined
     try {
-      return localStorage.getItem('pitstop.agentKey') ?? undefined
+      return localStorage.getItem(`pitstop.agentKey.${wallet.toLowerCase()}`) ?? undefined
     } catch {
       return undefined
     }
   },
-  set(key: string) {
+  set(key: string, wallet: string) {
     try {
-      localStorage.setItem('pitstop.agentKey', key)
+      localStorage.setItem(`pitstop.agentKey.${wallet.toLowerCase()}`, key)
     } catch {
       // ignore
     }
@@ -286,12 +288,71 @@ export const savedLimit = {
   },
 }
 
-/** The guarded wallet derived from the owner passkey saved on this device, if any. */
-export function savedOwner(): { id: string; publicKey: `0x${string}` } | undefined {
+/** An owner passkey reference. Public data: the private key never leaves the authenticator. */
+export type OwnerCredential = { id: string; publicKey: Hex; createdAt?: string }
+
+const ACTIVE_OWNER = 'pitstop.owner.v1'
+const ALL_OWNERS = 'pitstop.owners.v1'
+
+/** The guarded wallet a passkey owns. */
+export const ownerWallet = (c: OwnerCredential) => Account.fromWebAuthnP256(c).address
+
+function read<T>(k: string): T | undefined {
   try {
-    const raw = localStorage.getItem('pitstop.owner.v1')
-    return raw ? JSON.parse(raw) : undefined
+    const raw = localStorage.getItem(k)
+    return raw ? (JSON.parse(raw) as T) : undefined
   } catch {
     return undefined
   }
+}
+function write(k: string, v: unknown) {
+  try {
+    if (v === undefined) localStorage.removeItem(k)
+    else localStorage.setItem(k, JSON.stringify(v))
+  } catch {
+    // Storage blocked: the page still works for this session.
+  }
+}
+
+/** Owner wallets on this device. One is active; Fuel, Guard and the dashboard use it. */
+export const owners = {
+  list(): OwnerCredential[] {
+    const all = read<OwnerCredential[]>(ALL_OWNERS)
+    if (all) return all
+    // Before multiple wallets, the device kept one owner and one agent key.
+    const legacy = read<OwnerCredential>(ACTIVE_OWNER)
+    if (!legacy) return []
+    try {
+      const key = localStorage.getItem('pitstop.agentKey')
+      if (key) savedKey.set(key, ownerWallet(legacy))
+    } catch {
+      // ignore
+    }
+    write(ALL_OWNERS, [legacy])
+    return [legacy]
+  },
+  active(): OwnerCredential | undefined {
+    return read<OwnerCredential>(ACTIVE_OWNER)
+  },
+  /** Adds a wallet (or finds it again) and makes it the active one. */
+  add(c: OwnerCredential) {
+    const all = owners.list().filter((o) => o.id !== c.id)
+    write(ALL_OWNERS, [...all, c])
+    write(ACTIVE_OWNER, c)
+  },
+  setActive(id: string) {
+    write(ACTIVE_OWNER, owners.list().find((o) => o.id === id))
+  },
+  /** Forgets a wallet on this device only. The wallet stays on Tempo and the passkey stays in the passkey manager. */
+  remove(id: string) {
+    const rest = owners.list().filter((o) => o.id !== id)
+    write(ALL_OWNERS, rest)
+    if (owners.active()?.id === id) write(ACTIVE_OWNER, rest[rest.length - 1])
+  },
+}
+
+/** The active owner passkey on this device, if any. */
+export function savedOwner(): OwnerCredential | undefined {
+  owners.list() // runs the one-time migration
+  return owners.active()
 }
