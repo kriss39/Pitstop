@@ -555,3 +555,6 @@ img.avatar { object-fit: cover; background: none; border: 1px solid var(--line);
 .bd-readout { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .bd-readout output { font: 500 15px var(--mono); font-variant-numeric: tabular-nums; }
 .bd-readout output b { color: var(--ink); }
+.bd-connect { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; background: var(--bg); border-radius: 12px; }
+.bd-connect span { flex: 1 1 180px; min-width: 0; }
+.bd-connect button { flex: none; }

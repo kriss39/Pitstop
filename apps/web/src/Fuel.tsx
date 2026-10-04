@@ -459,14 +459,7 @@ export function Fuel() {
           belowMin={!useNative && amountNum > 0 && amountNum < MIN_USD}
           chain={src.label}
           loading={quoting}
-          amountUsd={useNative ? quote?.fromAmountUSD : amountNum}
-          onAmount={(v) => {
-            if (!useNative) return setAmount(String(v))
-            // Gas tokens: turn the dollar amount into tokens at the quote's price.
-            if (!quote?.fromAmountUSD) return
-            const price = quote.fromAmountUSD / Number(formatUnits(quote.fromAmount, quote.fromToken.decimals))
-            setAmount(String(Number((v / price).toFixed(8))))
-          }}
+          onConnect={sender ? undefined : () => openConnect(isEvm ? 'base' : 'solana')}
           native={useNative}
           wallet={walletSlide}
         />
@@ -501,8 +494,6 @@ export function Fuel() {
   )
 }
 
-/** The amount slider's range ends here; any amount can still be typed. */
-const SLIDER_MAX = 200
 const TOOL_NAMES: Record<string, string> = { across: 'Across', relaydepository: 'Relay', relay: 'Relay' }
 const toolName = (t: string) => TOOL_NAMES[t] ?? t.charAt(0).toUpperCase() + t.slice(1)
 const pct = (p?: number) => (p != null && p > 0 ? `${(p * 100).toFixed(p < 0.001 ? 3 : 2)}%` : '')
@@ -528,8 +519,7 @@ function Breakdown({
   belowMin,
   chain,
   loading,
-  amountUsd,
-  onAmount,
+  onConnect,
   native,
   wallet,
 }: {
@@ -538,13 +528,12 @@ function Breakdown({
   belowMin?: boolean
   chain: string
   loading: boolean
-  amountUsd?: number
-  onAmount: (v: number) => void
+  /** Opens the wallet dialog; set while no wallet is connected. */
+  onConnect?: () => void
   native: boolean
   /** With a connected wallet, the slider runs from 0 to what the wallet can send. */
   wallet?: { max: bigint; amount: bigint; token: { symbol: string; decimals: number }; set: (v: bigint) => void }
 }) {
-  const sliderValue = Math.min(SLIDER_MAX, Math.max(MIN_USD, amountUsd ?? MIN_USD))
   const walletPermille = wallet ? Number((wallet.amount > wallet.max ? wallet.max : wallet.amount) * 1000n / wallet.max) : 0
   // What the slider position is worth: dollars for USDC; tokens plus their dollar value (at the quote's price) for gas tokens.
   const slid = wallet ? (wallet.amount > wallet.max ? wallet.max : wallet.amount) : 0n
@@ -591,26 +580,10 @@ function Breakdown({
           </div>
         </div>
       ) : (
-        amountUsd != null && (
-          <div className="bd-play">
-            <label htmlFor="bd-range" className="small muted">Try another amount (connect a wallet to slide over your balance)</label>
-            <input
-              id="bd-range"
-              type="range"
-              min={MIN_USD}
-              max={SLIDER_MAX}
-              step={5}
-              value={sliderValue}
-              onChange={(e) => onAmount(Number(e.target.value))}
-              style={{ '--f': (sliderValue - MIN_USD) / (SLIDER_MAX - MIN_USD) } as CSSProperties}
-            />
-            <div className="bd-chips">
-              {[5, 10, 25, 50, 100].map((v) => (
-                <button key={v} className={Math.abs(amountUsd - v) < 0.5 ? 'on' : ''} onClick={() => onAmount(v)}>
-                  ${v}
-                </button>
-              ))}
-            </div>
+        onConnect && (
+          <div className="bd-connect">
+            <span className="small muted">Connect a wallet to pick the amount from your balance.</span>
+            <button className="ghost small-btn" onClick={onConnect}>Connect wallet</button>
           </div>
         )
       )}
