@@ -114,9 +114,24 @@ export type FuelQuote = {
   durationSeconds: number
   feesUsd: number
   gasUsd: number
+  /** Every cost on the route, in the order money leaves: integrator, LI.FI, bridge, then source-chain gas. */
+  costs: FuelCost[]
   /** Spender to approve on EVM chains. Ignored for Solana. */
   approvalAddress?: Address
   transactionRequest: EvmTransactionRequest | SolanaTransactionRequest
+}
+
+export type FuelCost = {
+  /** `deposit` is refundable (e.g. Solana rent for a new token account), so it isn't a cost. */
+  kind: 'integrator' | 'lifi' | 'bridge' | 'deposit' | 'gas'
+  name: string
+  amount: bigint
+  token: { symbol: string; decimals: number }
+  usd: number
+  /** Share of the amount sent, when LI.FI reports one (e.g. 0.0025 = 0.25%). */
+  percentage?: number
+  /** True if it is taken out of the amount sent; false if paid on top (gas). */
+  included: boolean
 }
 
 export class LifiError extends Error {
@@ -158,10 +173,60 @@ type RawQuote = {
     executionDuration: number
     fromAmountUSD?: string
     toAmountUSD?: string
-    feeCosts?: { amountUSD?: string }[]
-    gasCosts?: { amountUSD?: string }[]
+    feeCosts?: RawCost[]
+    gasCosts?: RawCost[]
   }
   transactionRequest?: { to?: string; data: string; value?: string; chainId?: number; gasLimit?: string }
+}
+
+type RawCost = {
+  name?: string
+  amount?: string
+  amountUSD?: string
+  percentage?: string
+  included?: boolean
+  token?: { symbol: string; decimals: number }
+}
+
+/**
+ * Turns LI.FI's fee and gas lists into FuelCosts. LI.FI reports its own fee and the
+ * integrator fee as one "LIFI Fixed Fee" item, so that item is split by the fee we asked for.
+ */
+function toCosts(q: RawQuote, integratorFee?: number): FuelCost[] {
+  const costs: FuelCost[] = []
+  for (const f of q.estimate.feeCosts ?? []) {
+    const base = {
+      amount: BigInt(f.amount ?? 0),
+      token: f.token ?? q.action.fromToken,
+      usd: Number(f.amountUSD ?? 0),
+      percentage: f.percentage != null ? Number(f.percentage) : undefined,
+      included: f.included ?? true,
+    }
+    const name = f.name ?? 'Fee'
+    if (/lifi/i.test(name) && integratorFee && base.percentage && base.percentage >= integratorFee) {
+      const share = integratorFee / base.percentage
+      const amount = (base.amount * BigInt(Math.round(share * 1e6))) / 1_000_000n
+      costs.push({ ...base, kind: 'integrator', name: 'Integrator fee', amount, usd: base.usd * share, percentage: integratorFee })
+      costs.push({
+        ...base,
+        kind: 'lifi',
+        name: 'LI.FI fee',
+        amount: base.amount - amount,
+        usd: base.usd * (1 - share),
+        percentage: base.percentage - integratorFee,
+      })
+    } else costs.push({ ...base, kind: /lifi/i.test(name) ? 'lifi' : /deposit/i.test(name) ? 'deposit' : 'bridge', name })
+  }
+  for (const g of q.estimate.gasCosts ?? [])
+    costs.push({
+      kind: 'gas',
+      name: 'Network gas',
+      amount: BigInt(g.amount ?? 0),
+      token: g.token ?? q.action.fromToken,
+      usd: Number(g.amountUSD ?? 0),
+      included: false,
+    })
+  return costs
 }
 
 const sumUsd = (items?: { amountUSD?: string }[]) =>
@@ -231,6 +296,7 @@ export async function fuelQuote(params: FuelQuoteParameters): Promise<FuelQuote>
     durationSeconds: q.estimate.executionDuration,
     feesUsd: sumUsd(q.estimate.feeCosts),
     gasUsd: sumUsd(q.estimate.gasCosts),
+    costs: toCosts(q, params.fee),
     approvalAddress: q.estimate.approvalAddress ? getAddress(q.estimate.approvalAddress) : undefined,
     transactionRequest,
   }

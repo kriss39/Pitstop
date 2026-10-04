@@ -21,6 +21,7 @@ export {
 } from './fuel.js'
 export type {
   EvmTransactionRequest,
+  FuelCost,
   FuelQuote,
   FuelQuoteParameters,
   FuelStatus,

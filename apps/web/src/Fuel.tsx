@@ -8,6 +8,7 @@ import {
   SOURCE_TOKENS,
   waitForFuel,
   FUEL_TOKENS,
+  type FuelCost,
   type FuelQuote,
   type FuelTokenSymbol,
 } from '@pitstop/sdk'
@@ -35,6 +36,7 @@ const MAX_USD = 5
 const COST_WARN = 0.03
 const COST_BLOCK = 0.1
 const LIFI_PROXY = '/lifi/v1'
+const SOLANA_PREVIEW_SENDER = '11111111111111111111111111111111'
 
 type Source = 'base' | 'arbitrum' | 'optimism' | 'ethereum' | 'polygon' | 'avalanche' | 'arc' | 'solana'
 type SourceInfo = {
@@ -176,15 +178,19 @@ export function Fuel() {
       baseUrl: LIFI_PROXY,
     })
 
-  // Live quote as you type. EVM previews can use the agent's address as a stand-in sender;
-  // Solana previews wait for a connected wallet.
-  const previewFrom = sender ?? (isEvm && agentOk ? agent : undefined)
+  // Live quote as you type. Before a wallet is connected, previews quote for a stand-in sender:
+  // the agent's address on EVM chains, the System Program address on Solana.
+  const previewFrom = sender ?? (agentOk ? (isEvm ? agent : SOLANA_PREVIEW_SENDER) : undefined)
   const [quoting, setQuoting] = useState(false)
   const [quoteError, setQuoteError] = useState<string>()
+  useEffect(() => setQuote(undefined), [agent, source, receive, useNative])
   useEffect(() => {
-    setQuote(undefined)
     setQuoteError(undefined)
-    if (!agentOk || !amountOk || !previewFrom || busy) return
+    if (!agentOk || !amountOk || !previewFrom || busy) {
+      setQuote(undefined)
+      setQuoting(false)
+      return
+    }
     let live = true
     setQuoting(true)
     const t = setTimeout(() => {
@@ -389,11 +395,11 @@ export function Fuel() {
               quote && (
                 <>
                   <span>~{quote.durationSeconds} s</span>
-                  <span>via {quote.tool}</span>
-                  <span>fees ${(quote.feesUsd + quote.gasUsd).toFixed(3)}</span>
+                  <span>via {toolName(quote.tool)}</span>
                   <span className={routeCost != null && routeCost > COST_WARN ? 'warn-text' : undefined}>
-                    cost {routeCost != null ? `${(routeCost * 100).toFixed(1)}%` : '–'}
+                    costs {dollars(costSummary(quote, useNative).totalUsd)} ({costSummary(quote, useNative).share})
                   </span>
+                  <a href="#breakdown">details ↓</a>
                 </>
               )
             )}
@@ -414,6 +420,21 @@ export function Fuel() {
           Includes a {PITSTOP_FEE * 100}% Pitstop fee. You sign in your own wallet; approvals are for the exact amount; the route is checked before you sign.
         </p>
       </section>
+
+      {quote && (
+        <Breakdown
+          quote={quote}
+          chain={src.label}
+          loading={quoting}
+          amountUsd={useNative ? quote.fromAmountUSD : amountNum}
+          onAmount={(v) => {
+            // Gas tokens: turn the dollar amount into tokens at the quote's price.
+            const price = quote.fromAmountUSD! / Number(formatUnits(quote.fromAmount, quote.fromToken.decimals))
+            setAmount(useNative ? String(Number((v / price).toFixed(8))) : String(v))
+          }}
+          native={useNative}
+        />
+      )}
 
       {steps.length > 0 && (
         <section className="panel">
@@ -441,5 +462,138 @@ export function Fuel() {
 
       {error && <p className="note bad" role="alert">{error}</p>}
     </main>
+  )
+}
+
+const TOOL_NAMES: Record<string, string> = { across: 'Across', relaydepository: 'Relay', relay: 'Relay' }
+const toolName = (t: string) => TOOL_NAMES[t] ?? t.charAt(0).toUpperCase() + t.slice(1)
+const pct = (p?: number) => (p != null && p > 0 ? `${(p * 100).toFixed(p < 0.001 ? 3 : 2)}%` : '')
+const dollars = (v: number) => `$${v < 1 ? v.toFixed(4) : grouped(v, 2)}`
+const tokenAmt = (amount: bigint, t: { symbol: string; decimals: number }, dp?: number) => {
+  const n = Number(formatUnits(amount, t.decimals))
+  return `${n === 0 ? '0' : n < 0.0001 ? n.toPrecision(2) : grouped(n, dp ?? (n < 1 ? 4 : 2))} ${t.symbol}`
+}
+
+/** Total route cost in dollars (fees, swap loss and gas; refundable deposits excluded) and its share of what's sent. */
+function costSummary(quote: FuelQuote, native: boolean) {
+  const takenUsd = quote.costs.filter((c) => c.included).reduce((s, c) => s + c.usd, 0)
+  const onTopUsd = quote.costs.filter((c) => !c.included && c.kind !== 'deposit').reduce((s, c) => s + c.usd, 0)
+  const swapUsd = native && quote.fromAmountUSD != null && quote.toAmountUSD != null ? quote.fromAmountUSD - takenUsd - quote.toAmountUSD : 0
+  const totalUsd = takenUsd + Math.max(0, swapUsd) + onTopUsd
+  const base = quote.fromAmountUSD ?? 0
+  return { swapUsd, totalUsd, share: base > 0 ? `${((totalUsd / base) * 100).toFixed(2)}%` : '–' }
+}
+
+/** Itemized route: what you send, each cost on the way, and what the agent gets. Live from the quote. */
+function Breakdown({
+  quote,
+  chain,
+  loading,
+  amountUsd,
+  onAmount,
+  native,
+}: {
+  quote: FuelQuote
+  chain: string
+  loading: boolean
+  amountUsd?: number
+  onAmount: (v: number) => void
+  native: boolean
+}) {
+  const bridge = toolName(quote.tool)
+  const label = (c: FuelCost) =>
+    c.kind === 'integrator' ? { t: 'Pitstop fee', d: 'Keeps Pitstop running' }
+    : c.kind === 'lifi' ? { t: 'LI.FI fee', d: 'Finds the best route and runs it' }
+    : c.kind === 'deposit' ? { t: 'Refundable deposit', d: 'Opens a token account if your wallet has none. Not a fee; you can get it back' }
+    : c.kind === 'gas' ? { t: `Gas on ${chain}`, d: `Paid on top by your wallet, in ${c.token.symbol}` }
+    : { t: `${bridge} · ${c.name.replace(/^./, (x) => x.toUpperCase())}`, d: 'Paid to the bridge that moves the money' }
+  const taken = quote.costs.filter((c) => c.included)
+  const onTop = quote.costs.filter((c) => !c.included)
+  // With a gas token, the swap into a stablecoin and price moves cost something too.
+  const { swapUsd, totalUsd, share } = costSummary(quote, native)
+
+  return (
+    <section id="breakdown" className={`breakdown rise${loading ? ' stale' : ''}`} aria-label="Where your money goes" aria-busy={loading}>
+      <div className="bd-head">
+        <h2>Where your money goes</h2>
+        <span className="muted small">{loading ? 'Updating…' : `Live quote · via ${bridge}`}</span>
+      </div>
+
+      {amountUsd != null && (
+        <div className="bd-play">
+          <label htmlFor="bd-range" className="small muted">Try another amount</label>
+          <input
+            id="bd-range"
+            type="range"
+            min={1}
+            max={MAX_USD}
+            step={0.5}
+            value={Math.min(MAX_USD, Math.max(1, amountUsd))}
+            onChange={(e) => onAmount(Number(e.target.value))}
+          />
+          <div className="bd-chips">
+            {[1, 2, 3, 5].filter((v) => v <= MAX_USD).map((v) => (
+              <button key={v} className={Math.abs(amountUsd - v) < 0.05 ? 'on' : ''} onClick={() => onAmount(v)}>
+                ${v}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <ol className="bd-flow">
+        <li className="bd-start">
+          <span className="bd-t">You send<small>from {chain}</small></span>
+          <span className="bd-v">{tokenAmt(quote.fromAmount, quote.fromToken)}</span>
+          <span className="bd-u">{quote.fromAmountUSD != null ? dollars(quote.fromAmountUSD) : ''}</span>
+        </li>
+        {taken.map((c, i) => {
+          const l = label(c)
+          return (
+            <li key={i} className={`bd-cost ${c.kind}`}>
+              <span className="bd-t">
+                <span>
+                  {l.t} {pct(c.percentage) && <em>{pct(c.percentage)}</em>}
+                </span>
+                <small>{l.d}</small>
+              </span>
+              <span className="bd-v">− {tokenAmt(c.amount, c.token)}</span>
+              <span className="bd-u">{dollars(c.usd)}</span>
+            </li>
+          )
+        })}
+        {swapUsd > 0.0005 && (
+          <li className="bd-cost">
+            <span className="bd-t">Swap and price<small>{quote.fromToken.symbol} becomes a stablecoin on the way</small></span>
+            <span className="bd-v">≈ − {dollars(swapUsd)}</span>
+            <span className="bd-u">{dollars(swapUsd)}</span>
+          </li>
+        )}
+        <li className="bd-end">
+          <span className="bd-t">Agent receives<small>on Tempo, in about {quote.durationSeconds} s</small></span>
+          <span className="bd-v">{tokenAmt(quote.toAmount, quote.toToken, 4)}</span>
+          <span className="bd-u">{quote.toAmountUSD != null ? dollars(quote.toAmountUSD) : ''}</span>
+        </li>
+        {onTop.map((c, i) => {
+          const l = label(c)
+          return (
+            <li key={`g${i}`} className="bd-cost on-top">
+              <span className="bd-t">+ {l.t}<small>{l.d}</small></span>
+              <span className="bd-v">{tokenAmt(c.amount, c.token)}</span>
+              <span className="bd-u">{dollars(c.usd)}</span>
+            </li>
+          )
+        })}
+      </ol>
+
+      <div className="bd-total">
+        <span>All costs</span>
+        <b>{dollars(totalUsd)}</b>
+        <span className="muted">{share} of what you send</span>
+      </div>
+      <p className="small muted">
+        The percentage fees grow with the amount. The bridge and gas costs stay about the same, so larger transfers cost less per dollar.
+      </p>
+    </section>
   )
 }
