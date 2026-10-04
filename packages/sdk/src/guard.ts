@@ -88,8 +88,9 @@ export type AuthorizeAgentKeyParameters = {
 export async function authorizeAgentKey(params: AuthorizeAgentKeyParameters): Promise<Hex> {
   const { owner, key, limit, token = TEMPO_TOKENS.USDCe, periodSeconds = DAY_SECONDS, expiry } = params
   // MPP pays with transferWithMemo; plain transfer is allowed to the same recipients.
-  const scopes = params.recipients?.length
-    ? [Scopes.tip20(token).transferWithMemo({ recipients: params.recipients }), Scopes.tip20(token).transfer({ recipients: params.recipients })]
+  const recipients = params.recipients?.length ? [...new Set(params.recipients.map((a) => getAddress(a)))] : undefined
+  const scopes = recipients
+    ? [Scopes.tip20(token).transferWithMemo({ recipients }), Scopes.tip20(token).transfer({ recipients })]
     : undefined
   const hash = await Actions.accessKey.authorize(walletClient(owner, params.feeToken), {
     accessKey: { address: key.address, type: key.type },
@@ -148,7 +149,14 @@ export async function getAgentKeyRecipients(params: { wallet: Address; key: Addr
   })) as readonly [boolean, readonly { target: Address; selectorRules: readonly { selector: Hex; recipients: readonly Address[] }[] }[]]
   if (!isScoped) return undefined
   const out = new Set<Address>()
-  for (const scope of scopes) for (const rule of scope.selectorRules) for (const r of rule.recipients) out.add(getAddress(r))
+  for (const scope of scopes) {
+    // A target with no selector rules, or a rule with no recipients, allows any recipient.
+    if (scope.selectorRules.length === 0) return undefined
+    for (const rule of scope.selectorRules) {
+      if (rule.recipients.length === 0) return undefined
+      for (const r of rule.recipients) out.add(getAddress(r))
+    }
+  }
   return [...out]
 }
 

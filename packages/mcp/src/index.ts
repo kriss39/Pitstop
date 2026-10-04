@@ -25,6 +25,13 @@ import { z } from 'zod'
 //   PITSTOP_AGENT_KEY  access key made on the Guard page (instead of agent-key.json)
 //   LIFI_API_KEY, LIFI_INTEGRATOR, REFILL_MAX_PER_DAY (default 6), PITSTOP_URL
 const store = keystore()
+/** PITSTOP_FEE as a fraction (0.001 = 0.1%); falls back to the default if it isn't a number in 0..0.05. */
+function feeFromEnv() {
+  const raw = process.env.PITSTOP_FEE
+  if (raw == null || raw.trim() === '') return PITSTOP_FEE
+  const fee = Number(raw)
+  return Number.isFinite(fee) && fee >= 0 && fee <= 0.05 ? fee : PITSTOP_FEE
+}
 const MAX_FUEL = 5
 // Token the agent's key is scoped to (AGENT_TOKEN, default USDCe).
 const AGENT_TOKEN: FuelTokenSymbol = (FUEL_TOKENS as readonly string[]).includes(process.env.AGENT_TOKEN ?? '')
@@ -36,7 +43,7 @@ const lifi = {
   apiKey: process.env.LIFI_API_KEY,
   integrator: process.env.LIFI_INTEGRATOR ?? 'pitstop',
   // Pitstop's fee applies to agent refuels too; PITSTOP_FEE=0 turns it off.
-  fee: process.env.PITSTOP_FEE != null ? Number(process.env.PITSTOP_FEE) : PITSTOP_FEE,
+  fee: feeFromEnv(),
 }
 
 const usd = (v: bigint) => formatUnits(v, TIP20_DECIMALS)

@@ -43,6 +43,6 @@ export function refillConfig(): RefillConfig {
     apiKey: process.env.LIFI_API_KEY,
     integrator: process.env.LIFI_INTEGRATOR,
     // Pitstop's fee applies to refills too; PITSTOP_FEE=0 turns it off.
-    fee: process.env.PITSTOP_FEE != null ? Number(process.env.PITSTOP_FEE) : PITSTOP_FEE,
+    fee: Number.isFinite(Number(process.env.PITSTOP_FEE)) && (process.env.PITSTOP_FEE ?? '').trim() !== '' ? Number(process.env.PITSTOP_FEE) : PITSTOP_FEE,
   }
 }

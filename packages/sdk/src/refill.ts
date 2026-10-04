@@ -11,7 +11,7 @@ import {
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { base } from 'viem/chains'
 import { getBalance } from './balance.js'
-import { executeFuel, fuelQuote, SOURCE_TOKENS, waitForFuel, type FuelStatus, type LifiOptions } from './fuel.js'
+import { executeFuel, FuelRevertedError, fuelQuote, SOURCE_TOKENS, waitForFuel, type FuelStatus, type LifiOptions } from './fuel.js'
 import type { FuelTokenSymbol } from './tokens.js'
 
 /**
@@ -127,7 +127,8 @@ export async function refillIfLow(
     })
   } catch (error) {
     // Broadcast but not confirmed (e.g. the RPC timed out): it may still land, so count it.
-    if (!sentHash) throw error
+    // A mined revert moved nothing, so it doesn't count.
+    if (!sentHash || error instanceof FuelRevertedError) throw error
     log(`  sent ${sentHash}, but the receipt check failed: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`)
     txHash = sentHash
   }

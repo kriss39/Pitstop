@@ -134,6 +134,14 @@ export type FuelCost = {
   included: boolean
 }
 
+/** The source-chain transaction was mined but reverted: nothing left the wallet except gas. */
+export class FuelRevertedError extends Error {
+  constructor(readonly hash: Hex) {
+    super(`Transfer transaction ${hash} reverted on the source chain`)
+    this.name = 'FuelRevertedError'
+  }
+}
+
 export class LifiError extends Error {
   constructor(
     message: string,
@@ -426,7 +434,7 @@ export async function executeFuel(params: {
   const hash = await wallet.sendTransaction({ chain, account, to: tx.to, data: tx.data, value: tx.value, gas: tx.gas })
   onStep?.({ step: 'send', hash })
   const receipt = await client.waitForTransactionReceipt({ hash })
-  if (receipt.status !== 'success') throw new Error('Transfer transaction failed on the source chain')
+  if (receipt.status !== 'success') throw new FuelRevertedError(hash)
   onStep?.({ step: 'sent' })
   return hash
 }

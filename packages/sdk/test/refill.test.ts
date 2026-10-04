@@ -70,6 +70,15 @@ describe('refillIfLow', () => {
     expect(state.sentToday).toBe('2000000')
   })
 
+  it('does not count a send that reverted on the source chain', async () => {
+    const { FuelRevertedError } = await import('../src/fuel.js')
+    executeFuel.mockImplementation(async ({ onStep }) => {
+      onStep({ step: 'send', hash: HASH })
+      throw new FuelRevertedError(HASH)
+    })
+    await expect(refillIfLow(config)).rejects.toThrow('reverted')
+  })
+
   it('does not count anything when nothing was sent', async () => {
     executeFuel.mockRejectedValue(new Error('user rejected'))
     await expect(refillIfLow(config)).rejects.toThrow('user rejected')

@@ -14,6 +14,7 @@ export {
   NATIVE_TOKEN,
   PITSTOP_FEE,
   SOLANA_NATIVE_TOKEN,
+  FuelRevertedError,
   LifiError,
   SOLANA_CHAIN_ID,
   SOURCE_TOKENS,
