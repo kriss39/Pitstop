@@ -15,12 +15,14 @@ export type TempoClientOptions = {
   rpcUrls?: readonly string[]
 }
 
+/** HTTP transport over the Tempo RPCs with automatic fallback. */
+export function tempoTransport(rpcUrls?: readonly string[]) {
+  const urls = rpcUrls?.length ? rpcUrls : TEMPO_RPC_URLS
+  return fallback(urls.map((url) => http(url)))
+}
+
 export function createTempoClient(options: TempoClientOptions = {}): PublicClient {
-  const urls = options.rpcUrls?.length ? options.rpcUrls : TEMPO_RPC_URLS
-  return createPublicClient({
-    chain: tempo,
-    transport: fallback(urls.map((url) => http(url))),
-  }) as PublicClient
+  return createPublicClient({ chain: tempo, transport: tempoTransport(options.rpcUrls) }) as PublicClient
 }
 
 export { tempo }

@@ -12,3 +12,6 @@ dist/
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
+
+# Agent access keys (private; stay on the agent machine)
+.pitstop/

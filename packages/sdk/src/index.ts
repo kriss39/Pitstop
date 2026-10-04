@@ -1,4 +1,4 @@
-export { createTempoClient, tempo, TEMPO_CHAIN_ID, TEMPO_RPC_URLS } from './client.js'
+export { createTempoClient, tempo, TEMPO_CHAIN_ID, TEMPO_RPC_URLS, tempoTransport } from './client.js'
 export type { TempoClientOptions } from './client.js'
 export { TEMPO_TOKENS, TIP20_DECIMALS } from './tokens.js'
 export type { TempoTokenSymbol } from './tokens.js'
@@ -24,3 +24,15 @@ export type {
   LifiOptions,
   SolanaTransactionRequest,
 } from './fuel.js'
+export {
+  agentAccount,
+  agentTransfer,
+  authorizeAgentKey,
+  DAY_SECONDS,
+  generateAccessKey,
+  getAgentKeyStatus,
+  revokeAgentKey,
+  tempoWithFees,
+  updateAgentLimit,
+} from './guard.js'
+export type { AccessKeyRef, AgentKeyStatus, AuthorizeAgentKeyParameters, GeneratedAccessKey } from './guard.js'
