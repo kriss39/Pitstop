@@ -1,5 +1,5 @@
 // Public usage numbers for /stats: transfers routed with Pitstop's LI.FI integrator id,
-// Pitstop fees waiting to be claimed, and Telegram watches. Team test wallets are marked
+// Pitstop's fees from them, and Telegram watches. Team test wallets are marked
 // so outside usage can be told apart from our own testing.
 
 const LIFI = 'https://li.quest'
@@ -30,7 +30,9 @@ const CHAINS: Record<number, string> = {
 }
 
 type Side = { chainId: number; amountUSD?: string; timestamp?: number; token?: { symbol?: string }; txHash?: string }
+type FeeCost = { token?: { symbol?: string; decimals?: number; priceUSD?: string }; feeSplit?: { integratorFee?: string } }
 type Transfer = {
+  feeCosts?: FeeCost[]
   fromAddress?: string
   toAddress?: string
   status?: string
@@ -46,7 +48,8 @@ export type Stats = {
   users: number
   agents: number
   volumeUsd: { total: number; outside: number }
-  feesUnclaimedUsd: number
+  /** Pitstop's integrator fees, from each transfer's fee split (stablecoins at $1). */
+  feesEarnedUsd: number
   telegram: { chats: number; agents: number }
   byChain: { chain: string; transfers: number; volumeUsd: number }[]
   recent: { time: number; chain: string; amountUsd: number; token: string; tool: string; team: boolean; link?: string }[]
@@ -69,7 +72,8 @@ async function allTransfers(apiKey?: string): Promise<Transfer[]> {
   const out: Transfer[] = []
   let next: string | undefined
   for (let page = 0; page < MAX_PAGES; page++) {
-    const q = new URLSearchParams({ integrator: INTEGRATOR, limit: '100', ...(next ? { next } : {}) })
+    // From before Pitstop's first transfer, so the count isn't limited to LI.FI's default window.
+    const q = new URLSearchParams({ integrator: INTEGRATOR, limit: '100', fromTimestamp: '1788000000', ...(next ? { next } : {}) })
     const body = await lifiGet<{ data: Transfer[]; hasNext?: boolean; next?: string }>(`/v2/analytics/transfers?${q}`, apiKey)
     out.push(...body.data)
     if (!body.hasNext || !body.next) break
@@ -78,16 +82,15 @@ async function allTransfers(apiKey?: string): Promise<Transfer[]> {
   return out
 }
 
-/** Sums the integrator fees LI.FI holds for Pitstop, in dollars. */
-async function unclaimedFees(apiKey?: string): Promise<number> {
-  type Balance = { amountUsd?: string; amount?: string; token?: { decimals?: number; priceUSD?: string } }
-  const body = await lifiGet<{ feeBalances?: { tokenBalances?: Balance[] }[] }>(`/v1/integrators/${INTEGRATOR}`, apiKey)
+/** Pitstop's share of the fees on a transfer, in dollars. */
+function earnedUsd(t: Transfer): number {
   let usd = 0
-  for (const chain of body.feeBalances ?? [])
-    for (const b of chain.tokenBalances ?? []) {
-      if (b.amountUsd != null) usd += Number(b.amountUsd)
-      else if (b.amount && b.token?.priceUSD) usd += (Number(b.amount) / 10 ** (b.token.decimals ?? 6)) * Number(b.token.priceUSD)
-    }
+  for (const f of t.feeCosts ?? []) {
+    const raw = Number(f.feeSplit?.integratorFee ?? 0)
+    if (!raw) continue
+    const amount = raw / 10 ** (f.token?.decimals ?? 6)
+    usd += /usd/i.test(f.token?.symbol ?? '') ? amount : amount * Number(f.token?.priceUSD ?? 0)
+  }
   return usd
 }
 
@@ -112,9 +115,8 @@ export async function getStats(db: D1Database | undefined, apiKey?: string): Pro
 
 async function computeStats(db: D1Database | undefined, apiKey?: string): Promise<Stats> {
 
-  const [transfers, fees, watches] = await Promise.all([
+  const [transfers, watches] = await Promise.all([
     allTransfers(apiKey),
-    unclaimedFees(apiKey).catch(() => 0),
     db
       ? db.prepare('SELECT count(DISTINCT chat_id) AS chats, count(DISTINCT address) AS agents FROM watches').first<{ chats: number; agents: number }>()
       : null,
@@ -137,7 +139,7 @@ async function computeStats(db: D1Database | undefined, apiKey?: string): Promis
     users: new Set(outside.map((t) => (t.fromAddress ?? '').toLowerCase())).size,
     agents: new Set(outside.map((t) => (t.toAddress ?? '').toLowerCase())).size,
     volumeUsd: { total: round(done.reduce((s, t) => s + usdOf(t), 0)), outside: round(outside.reduce((s, t) => s + usdOf(t), 0)) },
-    feesUnclaimedUsd: Math.round(fees * 10_000) / 10_000,
+    feesEarnedUsd: Math.round(done.reduce((sum, t) => sum + earnedUsd(t), 0) * 10_000) / 10_000,
     telegram: { chats: watches?.chats ?? 0, agents: watches?.agents ?? 0 },
     byChain: [...byChain.entries()]
       .map(([chain, e]) => ({ chain, transfers: e.transfers, volumeUsd: round(e.volumeUsd) }))

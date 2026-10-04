@@ -6,7 +6,7 @@
 
 Live app: **https://fuel.pitstopgas.workers.dev** · Live usage: [/stats](https://fuel.pitstopgas.workers.dev/stats) · X: [@pitstop_agents](https://x.com/pitstop_agents) · Alerts: [@pitstop_alert_bot](https://t.me/pitstop_alert_bot) · Help & feedback: [pitstop.agents@gmail.com](mailto:pitstop.agents@gmail.com)
 
-AI agents now pay for APIs per call over [MPP](https://mpp.dev) on Tempo: 137 services, from Anthropic and OpenAI to Dune, Nansen and Exa. Tempo gives every wallet access keys with spending limits. What's still missing is everything around them:
+AI agents now pay for APIs per call over [MPP](https://mpp.dev): 137 services on mpp.dev, 134 of them payable on Tempo, from Anthropic and OpenAI to Dune, Nansen and Exa. Tempo gives every wallet access keys with spending limits. What's still missing is everything around them:
 
 - **The money is somewhere else.** Owners hold stablecoins and gas tokens on Solana, Base, Ethereum and other chains; the agent needs USDC.e on Tempo.
 - **Nobody is watching.** The agent runs dry halfway through a task, or burns its budget, and the owner finds out too late.
@@ -27,14 +27,14 @@ Every flow below ran on Tempo mainnet with real funds (2026-10-04).
 
 | Flow | Result | Link |
 |---|---|---|
-| Fuel from Base | 2 USDC → 1.994511 USDCe on Tempo via Across, same block second | [LI.FI Scan](https://scan.li.fi/tx/0x53d3dda1b3309d2888cea5c352d0ab9f2120556990286b2e1ef11a33f9a9f9a2) |
-| Fuel from Solana | 2 USDC → 1.974477 USDCe via Relay in ~1 s | [LI.FI Scan](https://scan.li.fi/tx/2hQa9oxN1M4ondZRwr7LvAyzahW7SAnW6tqEc8PhbfionBLdafXD12qLvsKyXnJJ5roG9nwY6pcc4wBKawZEER97) |
+| Fuel from Base | 2 USDC → 1.994511 USDC.e on Tempo via Across, same block second | [LI.FI Scan](https://scan.li.fi/tx/0x53d3dda1b3309d2888cea5c352d0ab9f2120556990286b2e1ef11a33f9a9f9a2) |
+| Fuel from Solana | 2 USDC → 1.974477 USDC.e via Relay in ~1 s | [LI.FI Scan](https://scan.li.fi/tx/2hQa9oxN1M4ondZRwr7LvAyzahW7SAnW6tqEc8PhbfionBLdafXD12qLvsKyXnJJ5roG9nwY6pcc4wBKawZEER97) |
 | Agent pays Nansen over MPP | $0.01 per call, signed by the agent's access key | [Tempo tx](https://explore.tempo.xyz/tx/0xe172ca615f977aaeaa2ca03635a7715d129229470a25d987f397e184514ca7d0) |
 | Agent pays Codex over MPP | $0.001 per price lookup | [Wallet](https://explore.tempo.xyz/address/0x9Bd4984986D273ee27077C42Fe63dFB712b50bC0) |
 | Daily limit enforced | 5th call rejected: `Account keychain error: SpendingLimitExceeded` (no tx, no cost) | [Wallet](https://explore.tempo.xyz/address/0x9Bd4984986D273ee27077C42Fe63dFB712b50bC0) |
 | Key revoked by owner | next spend rejected: `AccountKeychainError(KeyAlreadyRevoked)` | — |
-| Auto-refill | agent below threshold → home wallet on Base fuels it (+1.994511 USDCe) | [Basescan](https://basescan.org/tx/0xf465aa34bff733e4503f3e5c711cd068b076a3e3ef74bed6366d90c3c775e5f8) |
-| MCP `fuel_agent` | Claude tool call → +0.997091 USDCe on Tempo | [Tempo tx](https://explore.tempo.xyz/tx/0xfcbe0e731184eae38c2a2a61e29cddea78503c26b25284fd3377c5030a5d01c4) |
+| Auto-refill | agent below threshold → home wallet on Base fuels it (+1.994511 USDC.e) | [Basescan](https://basescan.org/tx/0xf465aa34bff733e4503f3e5c711cd068b076a3e3ef74bed6366d90c3c775e5f8) |
+| MCP `fuel_agent` | Claude tool call → +0.997091 USDC.e on Tempo | [Tempo tx](https://explore.tempo.xyz/tx/0xfcbe0e731184eae38c2a2a61e29cddea78503c26b25284fd3377c5030a5d01c4) |
 
 Every transfer routed through Pitstop is counted live, with our own tests marked, at [/stats](https://fuel.pitstopgas.workers.dev/stats).
 
@@ -45,15 +45,15 @@ Every transfer routed through Pitstop is counted live, with our own tests marked
  ───────────                         ─────────────                      ─────
  passkey (Touch ID) ──authorizes──▶  access key (P256)  ──pays MPP──▶  Nansen, Dune, 130+ services
    │   limit / token / end date          │                              ▲
-   │                                     │ low on fuel?                 │ USDCe
+   │                                     │ low on fuel?                 │ USDC.e
    ▼                                     ▼                              │
- Fuel page: USDC, ETH, SOL… ──────▶ LI.FI (Across, Relay) ─────────────┘
+ Fuel page: USDC, ETH, SOL… ──────▶ LI.FI (Across, Relay…) ────────────┘
  from Base, Solana, Ethereum,       home wallet on Base ──auto-refill──┘
  Arbitrum, Optimism, Polygon,
  Avalanche, Arc
 ```
 
-1. **Fuel.** Pay with USDC or the chain's own token (ETH, POL, AVAX, SOL) from Base, Solana, Ethereum, Arbitrum, Optimism, Polygon, Avalanche or Arc. The agent receives USDC.e (or PathUSD, USDT0, OUSD) on Tempo. Every cost is itemized before you sign: Pitstop 0.1%, LI.FI 0.25%, the bridge and gas.
+1. **Fuel.** Pay with USDC or the chain's own token (ETH, POL, AVAX, SOL) from Base, Solana, Ethereum, Arbitrum, Optimism, Polygon, Avalanche or Arc. The agent receives USDC.e (or PathUSD, USDT0, OUSD) on Tempo. USDC usually routes through Across or Relay in 1–2 seconds; gas tokens can take other bridges and longer. Every cost is itemized before you sign: Pitstop 0.1%, LI.FI 0.25%, the bridge and gas.
 2. **Guard.** The agent's wallet is a Tempo passkey account. The owner authorizes the agent's P256 access key with Tempo's Account Keychain: a daily limit in one token, an end date and, optionally, the only services it may pay (Tempo's recipient scopes, TIP-1011). The owner can change the limit or revoke the key at any time; the agent can do neither.
 3. **Pay.** The agent pays MPP services with `mppx`, signing with its access key. Each payment, and its network fee, counts against the limit. Over the limit, Tempo rejects the payment before it reaches the chain.
 4. **Refill.** When the agent's balance drops below a threshold, it tops itself up from a small "home wallet" on Base, with a daily cap and a cooldown.
@@ -70,9 +70,10 @@ Every transfer routed through Pitstop is counted live, with our own tests marked
 
 Then set a daily limit and authorize it with your passkey.
 
-**3. Agent machine:**
+**3. Agent machine:** you need Node 22 or newer and pnpm (`corepack enable` sets it up). Put the variables below in a `.env` file at the repo root; the demo agent's scripts read it from there.
 
 ```sh
+git clone https://github.com/kriss39/pitstop && cd pitstop
 pnpm install && pnpm build
 cd examples/demo-agent
 pnpm keystatus       # limit left today, reset time, expiry
@@ -146,7 +147,7 @@ A 0.1% LI.FI integrator fee on every fuel route made through Pitstop, from the w
 
 ## Built with
 
-[Tempo](https://tempo.xyz) (Account Keychain, passkey accounts, TIP-20) · [LI.FI](https://li.fi) (Across, Relay) · [MPP](https://mpp.dev) / mppx · [viem](https://viem.sh) · Cloudflare Workers + D1 · Model Context Protocol SDK
+[Tempo](https://tempo.xyz) (Account Keychain, passkey accounts, TIP-20) · [LI.FI](https://li.fi) (Across, Relay and other bridges) · [MPP](https://mpp.dev) / mppx · [viem](https://viem.sh) · Cloudflare Workers + D1 · Model Context Protocol SDK
 
 ## License
 

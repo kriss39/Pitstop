@@ -21,7 +21,7 @@ function ReplayBoard() {
   return (
     <div className={`board rise d3 ${blocked ? 'blocked shake' : ''}`} aria-label="Replay of the mainnet demo">
       <div className="board-top">
-        <span className="board-tag">P1 · Research agent</span>
+        <span className="board-tag">P1 · Mainnet replay · Oct 4</span>
         {blocked ? <FlagChip flag="red">Blocked</FlagChip> : paid >= 4 ? <FlagChip flag="yellow">Near limit</FlagChip> : <FlagChip flag="green">Active</FlagChip>}
       </div>
       <div>
@@ -58,7 +58,7 @@ const BUILT_ON = [
   {
     name: 'LI.FI',
     role: 'Brings the fuel in',
-    line: 'Routes USDC and gas tokens from all the major chains into Tempo through Across and Relay. More are on the way.',
+    line: 'Routes USDC and gas tokens from Solana, Ethereum and the major L2s into Tempo, mostly through Across and Relay. More chains are on the way.',
     stats: [['~1–2 s', 'to Tempo'], ['Any', 'source chain'], ['0.1%', 'Pitstop fee']],
     href: 'https://li.fi',
   },

@@ -615,3 +615,9 @@ img.avatar { object-fit: cover; background: none; border: 1px solid var(--line);
 @media (max-width: 420px) {
   .top-actions a.theme-btn { display: none; }
 }
+
+/* Focus ring: dark ink on light backgrounds (yellow would be nearly invisible), yellow in the dark theme */
+:root { --focus: #111111; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) { --focus: #ffd400; } }
+:root[data-theme='dark'] { --focus: #ffd400; }
+:focus-visible { outline-color: var(--focus); }

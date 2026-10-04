@@ -140,7 +140,7 @@ export function Fuel() {
   const ready = isEvm ? !!w.evm && onChain : !!w.solana
   // Solana balances come from the Worker; if that read fails, the wallet still checks funds when signing.
   const enoughFunds = isEvm ? srcBalance != null && srcBalance >= fromAmount : srcBalance == null || srcBalance >= fromAmount
-  const routeCost = quote?.fromAmountUSD && quote.toAmountUSD ? 1 - quote.toAmountUSD / quote.fromAmountUSD : undefined
+  const routeCost = quote ? lossOf(quote) : undefined
   const underMin = useNative && quote?.fromAmountUSD != null && quote.fromAmountUSD < MIN_USD * 0.99
   const tooCostly = routeCost != null && routeCost > COST_BLOCK
 
@@ -228,7 +228,7 @@ export function Fuel() {
     const t = setTimeout(() => {
       newQuote(previewFrom, quoteTo).then(
         (q) => live && setQuote(q),
-        (e) => live && setQuoteError(e instanceof Error && /no available quotes|not found/i.test(e.message) ? 'No route for this amount. Try more, or another token.' : 'Couldn’t get a quote. Try again.'),
+        (e) => live && (setQuote(undefined), setQuoteError(e instanceof Error && /no available quotes|not found/i.test(e.message) ? 'No route for this amount. Try more, or another token.' : 'Couldn’t get a quote. Try again.')),
       ).finally(() => live && setQuoting(false))
     }, 600)
     return () => {
@@ -244,7 +244,7 @@ export function Fuel() {
       const q = await newQuote(sender!, agent)
       setQuote(q)
       if (useNative && q.fromAmountUSD != null && q.fromAmountUSD < MIN_USD * 0.99) throw new Error(`The minimum is $${MIN_USD} per transfer.`)
-      if (q.fromAmountUSD && q.toAmountUSD && 1 - q.toAmountUSD / q.fromAmountUSD > COST_BLOCK)
+      if ((lossOf(q) ?? 0) > COST_BLOCK)
         throw new Error('This route got too expensive. Try another chain or token.')
       const tx = q.transactionRequest
       const t0 = Date.now()
@@ -313,7 +313,9 @@ export function Fuel() {
   const balanceText =
     srcBalance != null ? `${Number(formatUnits(srcBalance, pay.decimals)).toFixed(pay.decimals > 6 ? 5 : 2)} ${pay.symbol}` : undefined
   // Gas tokens keep 5% back so the wallet can still pay the network fee.
-  const spendable = srcBalance != null ? (useNative ? (srcBalance * 95n) / 100n : srcBalance) : undefined
+  // On Arc, USDC itself pays gas, so it gets the same reserve.
+  const gasFromBalance = useNative || (isEvm && !src.native)
+  const spendable = srcBalance != null ? (gasFromBalance ? (srcBalance * 95n) / 100n : srcBalance) : undefined
   /** Token amount as input text, rounded down so it never exceeds the balance. */
   const payText = (v: bigint) => {
     const unit = 10n ** BigInt(pay.decimals - (pay.decimals > 6 ? 6 : 2))
@@ -383,7 +385,7 @@ export function Fuel() {
             </div>
           </div>
           <span className="swap-sub">
-            {quote?.fromAmountUSD != null ? `≈ $${grouped(quote.fromAmountUSD, 2)}` : `Minimum $${MIN_USD} per transfer`}
+            {quote && sendUsd(quote) != null ? `≈ $${grouped(sendUsd(quote)!, 2)}` : `Minimum $${MIN_USD} per transfer`}
           </span>
         </div>
 
@@ -511,22 +513,36 @@ export function Fuel() {
   )
 }
 
+/** Stablecoins count as exactly $1 a unit; LI.FI's price estimates differ by a few tenths of a cent. */
+const isStable = (symbol: string) => /usd/i.test(symbol)
+const usdOf = (amount: bigint, token: { symbol: string; decimals: number }, estimate?: number) =>
+  isStable(token.symbol) ? Number(formatUnits(amount, token.decimals)) : estimate
+const sendUsd = (q: FuelQuote) => usdOf(q.fromAmount, q.fromToken, q.fromAmountUSD)
+const receiveUsd = (q: FuelQuote) => usdOf(q.toAmount, q.toToken, q.toAmountUSD)
+const costUsd = (c: FuelCost) => usdOf(c.amount, c.token, c.usd) ?? c.usd
+/** Share of the value lost between what's sent and what arrives. */
+const lossOf = (q: FuelQuote) => {
+  const sent = sendUsd(q), got = receiveUsd(q)
+  return sent && got != null ? 1 - got / sent : undefined
+}
+
 const TOOL_NAMES: Record<string, string> = { across: 'Across', relaydepository: 'Relay', relay: 'Relay' }
 const toolName = (t: string) => TOOL_NAMES[t] ?? t.charAt(0).toUpperCase() + t.slice(1)
 const pct = (p?: number) => (p != null && p > 0 ? `${(p * 100).toFixed(p < 0.001 ? 3 : 2)}%` : '')
 const dollars = (v: number) => `$${v < 1 ? v.toFixed(4) : grouped(v, 2)}`
 const tokenAmt = (amount: bigint, t: { symbol: string; decimals: number }, dp?: number) => {
   const n = Number(formatUnits(amount, t.decimals))
-  return `${n === 0 ? '0' : n < 0.0001 ? n.toPrecision(2) : grouped(n, dp ?? (n < 1 ? 4 : 2))} ${t.symbol}`
+  return `${n === 0 ? '0' : n < 0.0001 ? n.toPrecision(2) : grouped(n, dp ?? (n < 1 ? 4 : 2))} ${tokenLabel(t.symbol)}`
 }
 
 /** Total route cost in dollars (fees, swap loss and gas; refundable deposits excluded) and its share of what's sent. */
 function costSummary(quote: FuelQuote, native: boolean) {
-  const takenUsd = quote.costs.filter((c) => c.included).reduce((s, c) => s + c.usd, 0)
-  const onTopUsd = quote.costs.filter((c) => !c.included && c.kind !== 'deposit').reduce((s, c) => s + c.usd, 0)
-  const swapUsd = native && quote.fromAmountUSD != null && quote.toAmountUSD != null ? quote.fromAmountUSD - takenUsd - quote.toAmountUSD : 0
+  const takenUsd = quote.costs.filter((c) => c.included && c.kind !== 'deposit').reduce((s, c) => s + costUsd(c), 0)
+  const onTopUsd = quote.costs.filter((c) => !c.included && c.kind !== 'deposit').reduce((s, c) => s + costUsd(c), 0)
+  const sent = sendUsd(quote), got = receiveUsd(quote)
+  const swapUsd = native && sent != null && got != null ? sent - takenUsd - got : 0
   const totalUsd = takenUsd + Math.max(0, swapUsd) + onTopUsd
-  const base = quote.fromAmountUSD ?? 0
+  const base = sent ?? 0
   return { swapUsd, totalUsd, share: base > 0 ? `${((totalUsd / base) * 100).toFixed(2)}%` : '–' }
 }
 
@@ -639,7 +655,7 @@ function CostFlow({ quote, chain, native }: { quote: FuelQuote; chain: string; n
         <li className="bd-start">
           <span className="bd-t">You send<small>from {chain}</small></span>
           <span className="bd-v">{tokenAmt(quote.fromAmount, quote.fromToken)}</span>
-          <span className="bd-u">{quote.fromAmountUSD != null ? dollars(quote.fromAmountUSD) : ''}</span>
+          <span className="bd-u">{sendUsd(quote) != null ? dollars(sendUsd(quote)!) : ''}</span>
         </li>
         {taken.map((c, i) => {
           const l = label(c)
@@ -652,7 +668,7 @@ function CostFlow({ quote, chain, native }: { quote: FuelQuote; chain: string; n
                 <small>{l.d}</small>
               </span>
               <span className="bd-v">− {tokenAmt(c.amount, c.token)}</span>
-              <span className="bd-u">{dollars(c.usd)}</span>
+              <span className="bd-u">{dollars(costUsd(c))}</span>
             </li>
           )
         })}
@@ -666,7 +682,7 @@ function CostFlow({ quote, chain, native }: { quote: FuelQuote; chain: string; n
         <li className="bd-end">
           <span className="bd-t">Agent receives<small>on Tempo, in about {quote.durationSeconds} s</small></span>
           <span className="bd-v">{tokenAmt(quote.toAmount, quote.toToken, 4)}</span>
-          <span className="bd-u">{quote.toAmountUSD != null ? dollars(quote.toAmountUSD) : ''}</span>
+          <span className="bd-u">{receiveUsd(quote) != null ? dollars(receiveUsd(quote)!) : ''}</span>
         </li>
         {onTop.map((c, i) => {
           const l = label(c)
@@ -674,7 +690,7 @@ function CostFlow({ quote, chain, native }: { quote: FuelQuote; chain: string; n
             <li key={`g${i}`} className="bd-cost on-top">
               <span className="bd-t">+ {l.t}<small>{l.d}</small></span>
               <span className="bd-v">{tokenAmt(c.amount, c.token)}</span>
-              <span className="bd-u">{dollars(c.usd)}</span>
+              <span className="bd-u">{dollars(costUsd(c))}</span>
             </li>
           )
         })}

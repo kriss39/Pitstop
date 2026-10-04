@@ -109,7 +109,9 @@ export function describeKey(status: AgentKeyStatus | undefined, spends: Spend[] 
   if (limit && limit > 0n) {
     // One cell per cent for small demo limits; otherwise 20 equal cells.
     const total = limit <= 200_000n ? Math.max(1, Math.round(Number(limit) / 10_000)) : 20
-    const left = Math.max(0, Math.min(total, Math.floor((Number(status.remaining) / Number(limit)) * total + 1e-9)))
+    // A partly full cell still counts as fuel while the key can pay something.
+    const exact = (Number(status.remaining) / Number(limit)) * total
+    const left = status.remaining >= USED_UP ? Math.max(1, Math.min(total, Math.ceil(exact - 1e-9))) : 0
     cells = { total, left }
   }
 
@@ -145,7 +147,10 @@ export type AgentData = {
 /** Live view of an agent wallet and (optionally) its access key. */
 export function useAgent(wallet?: string, key?: string, withSpends = false, token: FuelTokenSymbol = 'USDCe'): AgentData {
   const [data, setData] = useState<Omit<AgentData, 'refresh'>>({ token, loading: false })
+  // Only the latest request may write: switching wallets or keys mid-read must not show the old one's data.
+  const latest = useRef(0)
   const refresh = useCallback(async () => {
+    const id = ++latest.current
     if (!wallet || !isAddress(wallet)) return setData({ token, loading: false })
     setData((d) => ({ ...d, loading: true, error: undefined }))
     try {
@@ -154,8 +159,10 @@ export function useAgent(wallet?: string, key?: string, withSpends = false, toke
         key && isAddress(key) ? getAgentKeyStatus({ wallet: wallet as Address, key: key as Address, token: TEMPO_TOKENS[token] }) : undefined,
         withSpends ? getRecentSpends({ wallet: wallet as Address, token: TEMPO_TOKENS[token] }).catch(() => undefined) : undefined,
       ])
+      if (id !== latest.current) return
       setData({ token, balance: totalUsd(balances), balances, status, spends, loading: false })
     } catch (e) {
+      if (id !== latest.current) return
       setData((d) => ({ ...d, loading: false, error: e instanceof Error ? e.message.split('\n')[0] : String(e) }))
     }
   }, [wallet, key, withSpends, token])
@@ -224,6 +231,14 @@ export const savedKey = {
 
 /** The token the owner scoped a key to on this device (USDCe if never set). */
 export const savedToken = {
+  /** Whether this device knows the key's token (otherwise get() falls back to USDCe). */
+  has(key: string): boolean {
+    try {
+      return (FUEL_TOKENS as readonly string[]).includes(localStorage.getItem(`pitstop.token.${key.toLowerCase()}`) ?? '')
+    } catch {
+      return false
+    }
+  },
   get(key?: string): FuelTokenSymbol {
     try {
       const v = key ? localStorage.getItem(`pitstop.token.${key.toLowerCase()}`) : null
@@ -239,19 +254,6 @@ export const savedToken = {
       // ignore
     }
   },
-}
-
-/** Token picker for the four stablecoins Pitstop can deliver to Tempo. */
-export function TokenPicker({ value, onChange, disabled, label }: { value: FuelTokenSymbol; onChange: (t: FuelTokenSymbol) => void; disabled?: boolean; label: string }) {
-  return (
-    <div className="seg" role="radiogroup" aria-label={label}>
-      {FUEL_TOKENS.map((t) => (
-        <button key={t} role="radio" aria-checked={value === t} onClick={() => onChange(t)} disabled={disabled}>
-          {t}
-        </button>
-      ))}
-    </div>
-  )
 }
 
 /** The daily limit the owner set for a key on this device (the chain only exposes what's left). */

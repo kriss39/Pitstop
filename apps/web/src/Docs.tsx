@@ -186,6 +186,7 @@ export function Docs() {
                 <tr><td>Solana</td><td>Phantom, MetaMask, Solflare, Backpack</td><td>~1 s</td><td>Relay</td></tr>
               </tbody>
             </table></div>
+            <p className="muted small">Times and bridges are typical for USDC. Paying with a gas token can route through another bridge and take longer; the quote shows which one before you sign.</p>
             <ul className="doc-list">
               <li>Pay with USDC or the gas token (ETH, POL, AVAX, SOL). LI.FI swaps it on the way. On Arc, USDC is the gas token.</li>
               <li>The web app sends at least $5 per transfer: below that, the fixed bridge and gas costs take too big a share. Approvals are for the exact amount.</li>
@@ -293,7 +294,7 @@ export function Docs() {
             <div className="table-wrap"><table className="doc-table">
               <thead><tr><th>Command</th><th>What it does</th></tr></thead>
               <tbody>
-                <tr><td><code>/watch &lt;wallet&gt; &lt;key&gt; [token]</code></td><td>Alert me about this agent (token defaults to USDCe)</td></tr>
+                <tr><td><code>/watch &lt;wallet&gt; [key] [token]</code></td><td>Alert me about this agent (token defaults to USDCe)</td></tr>
                 <tr><td><code>/status</code></td><td>Show my agents now</td></tr>
                 <tr><td><code>/unwatch &lt;wallet&gt;</code></td><td>Stop alerts for one agent</td></tr>
                 <tr><td><code>/stop</code></td><td>Stop all alerts</td></tr>

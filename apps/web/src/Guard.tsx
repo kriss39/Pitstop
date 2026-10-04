@@ -4,6 +4,7 @@ import {
   FUEL_TOKENS,
   generateAccessKey,
   getAgentKeyRecipients,
+  getAgentKeyStatus,
   pickFeeToken,
   revokeAgentKey,
   TEMPO_TOKENS,
@@ -87,6 +88,29 @@ export function Guard() {
     if (keyOk) setToken(savedToken.get(keyAddr))
   }, [keyAddr, keyOk])
   const agent = useAgent(wallet, keyOk ? keyAddr : undefined, true, token)
+  // A key this device has never seen (restored wallet, key from a link): find its token on-chain,
+  // so the board and "Set limit" use the token the key is really limited in.
+  const keyAuthorized = !!agent.status?.authorized
+  useEffect(() => {
+    if (!keyOk || !wallet || !keyAuthorized || savedToken.has(keyAddr)) return
+    let live = true
+    Promise.all(
+      FUEL_TOKENS.map((t) => getAgentKeyStatus({ wallet, key: keyAddr as Address, token: TEMPO_TOKENS[t] }).then((s) => [t, s.remaining] as const)),
+    ).then(
+      (list) => {
+        if (!live) return
+        const [best, left] = list.reduce((a, b) => (b[1] > a[1] ? b : a))
+        if (left > 0n) {
+          savedToken.set(keyAddr, best)
+          setToken(best)
+        }
+      },
+      () => {},
+    )
+    return () => {
+      live = false
+    }
+  }, [keyOk, wallet, keyAddr, keyAuthorized])
   const status = agent.status
   const limitNum = decimalValue(limit)
   const limitOk = Number.isFinite(limitNum) && limitNum > 0 && limitNum <= 1000
@@ -104,15 +128,17 @@ export function Guard() {
   const [onlyPicked, setOnlyPicked] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(() => new Set(SERVICE_LIST.filter((s) => DEFAULT_PAYEES.includes(s.name)).map((s) => s.address)))
   const [extraPayee, setExtraPayee] = useState('')
-  const recipients = onlyPicked ? [...picked, ...(isAddress(extraPayee) ? [extraPayee.toLowerCase()] : [])].map((a) => a as Address) : undefined
-  const [currentPayees, setCurrentPayees] = useState<Address[] | null>()
+  const recipients = onlyPicked ? [...new Set([...picked, ...(isAddress(extraPayee) ? [extraPayee.toLowerCase()] : [])])].map((a) => a as Address) : undefined
+  const extraPayeeBad = onlyPicked && extraPayee !== '' && !isAddress(extraPayee)
+  // undefined while reading, null when the key may pay anyone, 'error' if the read failed.
+  const [currentPayees, setCurrentPayees] = useState<Address[] | null | 'error'>()
   useEffect(() => {
     setCurrentPayees(undefined)
     if (!active || !wallet || !keyOk) return
     let live = true
     getAgentKeyRecipients({ wallet, key: keyAddr as Address }).then(
       (r) => live && setCurrentPayees(r ?? null),
-      () => {},
+      () => live && setCurrentPayees('error'),
     )
     return () => {
       live = false
@@ -246,6 +272,8 @@ export function Guard() {
             ? { label: 'Enter a daily limit', disabled: true }
             : !active && recipients && recipients.length === 0
               ? { label: 'Pick at least one service', disabled: true }
+            : !active && extraPayeeBad
+              ? { label: 'Fix the payee address first', disabled: true }
             : madeHere && !keySaved && !active
               ? { label: 'Give the key to your agent first', disabled: true }
             : !active
@@ -458,6 +486,8 @@ export function Guard() {
                 <p className="swap-text small">
                   {currentPayees === undefined
                     ? 'Reading from Tempo…'
+                    : currentPayees === 'error'
+                      ? 'Couldn’t read this from Tempo. Refresh the page to try again.'
                     : currentPayees === null
                       ? 'Any service. To limit it, authorize a new key with “Only these”.'
                       : `Only: ${currentPayees.map((a) => nameOf(a) ?? short(a)).join(', ')}. Tempo refuses payments to anyone else.`}

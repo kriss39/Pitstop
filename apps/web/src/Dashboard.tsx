@@ -52,8 +52,12 @@ export function Dashboard() {
   const visible = (showFees ? rows : payments).slice(0, showAll ? undefined : 8)
   const hiddenCount = (showFees ? rows : payments).length - visible.length
   // Payments to known MPP services, and everything else the wallet sent (e.g. the owner's own transfers).
-  const servicePayments = payments.filter((r) => service(r.to))
-  const otherTransfers = payments.filter((r) => !service(r.to))
+  // The summary covers the current limit period only, so it can be read against the daily limit.
+  const periodStart = agent.status?.periodEnd ? agent.status.periodEnd - 86_400 : undefined
+  const inPeriod = (r: Row) => periodStart == null || r.time >= periodStart
+  const since = periodStart ? new Date(periodStart * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined
+  const servicePayments = payments.filter((r) => service(r.to) && inPeriod(r))
+  const otherTransfers = payments.filter((r) => !service(r.to) && inPeriod(r))
   const serviceTotal = servicePayments.reduce((sum, r) => sum + r.amount + r.fee, 0n)
   const otherTotal = otherTransfers.reduce((sum, r) => sum + r.amount + r.fee, 0n)
   // The real daily limit, when the link carries it (the chain only reports what's left).
@@ -149,7 +153,7 @@ export function Dashboard() {
                     {' '}· {otherTransfers.length} other {otherTransfers.length === 1 ? 'transfer' : 'transfers'} · {amt(otherTotal)}
                   </>
                 )}{' '}
-                in the last ~15 hours, fees included
+                {since ? `since the limit reset at ${since}` : 'in the last ~15 hours'}, fees included
               </p>
             )}
             {visible.length ? (
@@ -231,6 +235,9 @@ export function Dashboard() {
                   </li>
                 ))}
               </ul>
+              {byService.some((e) => e.name === 'Other transfers') && (
+                <p className="small muted">Other transfers went to addresses that aren’t known MPP services, such as test payments.</p>
+              )}
             </section>
           )}
 

@@ -6,7 +6,7 @@ type Stats = {
   users: number
   agents: number
   volumeUsd: { total: number; outside: number }
-  feesUnclaimedUsd: number
+  feesEarnedUsd: number
   telegram: { chats: number; agents: number }
   byChain: { chain: string; transfers: number; volumeUsd: number }[]
   recent: { time: number; chain: string; amountUsd: number; token: string; tool: string; team: boolean; link?: string }[]
@@ -70,9 +70,9 @@ export function StatsPage() {
               </small>
             </div>
             <div className="stat">
-              <span className="stat-k">Pitstop fees</span>
-              <b>{money(stats.feesUnclaimedUsd)}</b>
-              <small>waiting to be claimed on LI.FI</small>
+              <span className="stat-k">Pitstop fees earned</span>
+              <b>{stats.feesEarnedUsd > 0 && stats.feesEarnedUsd < 0.01 ? `$${stats.feesEarnedUsd.toFixed(4)}` : money(stats.feesEarnedUsd)}</b>
+              <small>0.1% of each route, paid out by LI.FI</small>
             </div>
             <div className="stat">
               <span className="stat-k">Telegram alerts</span>
