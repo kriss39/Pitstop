@@ -12,7 +12,7 @@ import {
   totalUsd,
 } from '@pitstop/sdk'
 import { keystore } from '@pitstop/sdk/node'
-import { formatUnits, isAddress, maxUint256, parseUnits, type Address } from 'viem'
+import { formatUnits, isAddress, parseUnits, type Address } from 'viem'
 import { z } from 'zod'
 
 // Configuration comes from the agent machine's environment:
@@ -107,10 +107,10 @@ server.registerTool(
           ...lifi,
           agentWallet: wallet,
           home,
-          threshold: maxUint256, // manual refuel: always below
+          threshold: 0n,
           amount: parseUnits(String(amount), 6),
           maxPerDay: parseUnits(process.env.REFILL_MAX_PER_DAY ?? '6', 6),
-          cooldownMs: 0,
+          force: true,
         },
         store.loadRefillState(),
         (m) => progress.push(m.trim()),

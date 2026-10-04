@@ -47,6 +47,8 @@ export type RefillConfig = LifiOptions & {
   maxPerDay: bigint
   /** Minimum time between refills. Defaults to 10 minutes. */
   cooldownMs?: number
+  /** Refuel now regardless of balance and cooldown (the daily cap still applies). */
+  force?: boolean
   baseRpcUrl?: string
 }
 
@@ -74,10 +76,11 @@ export async function refillIfLow(
 
   const [usdce] = await getBalance({ address: config.agentWallet, tokens: ['USDCe'] })
   const balance = usdce!.raw
-  if (balance >= config.threshold) return { result: { action: 'skipped', reason: 'above-threshold', balance }, state: s }
+  if (!config.force && balance >= config.threshold)
+    return { result: { action: 'skipped', reason: 'above-threshold', balance }, state: s }
 
   const cooldown = config.cooldownMs ?? 10 * 60_000
-  if (s.lastRefillAt && Date.now() - s.lastRefillAt < cooldown)
+  if (!config.force && s.lastRefillAt && Date.now() - s.lastRefillAt < cooldown)
     return { result: { action: 'skipped', reason: 'cooldown', balance }, state: s }
   if (BigInt(s.sentToday) + config.amount > config.maxPerDay)
     return { result: { action: 'skipped', reason: 'daily-cap', balance }, state: s }
@@ -88,7 +91,11 @@ export async function refillIfLow(
     throw new Error(`Home wallet ${account.address} has ${formatUnits(funds.usdc, 6)} USDC on Base; needs ${formatUnits(config.amount, 6)}`)
   if (funds.eth === 0n) throw new Error(`Home wallet ${account.address} has no ETH on Base for gas`)
 
-  log(`Agent USDCe ${formatUnits(balance, 6)} < ${formatUnits(config.threshold, 6)}; fueling ${formatUnits(config.amount, 6)} USDC from Base`)
+  log(
+    config.force
+      ? `Manual refuel: agent USDCe ${formatUnits(balance, 6)}; fueling ${formatUnits(config.amount, 6)} USDC from Base`
+      : `Agent USDCe ${formatUnits(balance, 6)} < ${formatUnits(config.threshold, 6)}; fueling ${formatUnits(config.amount, 6)} USDC from Base`,
+  )
   const quote = await fuelQuote({
     ...config,
     fromChain: base.id,

@@ -1,6 +1,6 @@
 # Pitstop: Project Brief (2026-10-04)
 
-Status: Day 3 guard proven on mainnet (2026-10-04): the agent's access key is blocked by the protocol (`SpendingLimitExceeded`) once its daily limit is used. Day 2 deployed: https://fuel.pitstopgas.workers.dev serves the fuel page (Base + Solana), the LI.FI proxy and the D1 agent registry. Solana fuel tested with real funds (2 transfers, ~1 s each). Day 1: first real Base → Tempo fuel (see §13). Day 0: monorepo scaffolded, rules confirmed. Deadline: Colosseum Tempo track, **2026-10-12 23:59 PT** (= 2026-10-13 06:59 UTC).
+Status: Day 4 done (2026-10-04): auto-refill from the agent's Base home wallet and the MCP server (`fuel_agent`) both fuel the guarded wallet on mainnet. Day 3 guard proven on mainnet: the agent's access key is blocked by the protocol (`SpendingLimitExceeded`) once its daily limit is used. Day 2 deployed: https://fuel.pitstopgas.workers.dev serves the fuel page (Base + Solana), the LI.FI proxy and the D1 agent registry. Solana fuel tested with real funds (2 transfers, ~1 s each). Day 1: first real Base → Tempo fuel (see §13). Day 0: monorepo scaffolded, rules confirmed. Deadline: Colosseum Tempo track, **2026-10-12 23:59 PT** (= 2026-10-13 06:59 UTC).
 Legend: ✓ = verified on 2026-10-04 · ▲ = not verified yet; confirm before relying on it.
 
 ---
@@ -216,6 +216,7 @@ Reports on the Desktop:
 
 | Date | What | Result |
 |---|---|---|
+| 2026-10-04 | Day 4. New agent key `0xd2a1…0074` authorized (5 USDCe/day, 30 days). Home wallet `0xFE99…d169` (Base) funded 4 USDC + 0.0006 ETH | `pnpm refill` (threshold 2): agent 1.087925 < 2 → exact approve + send `0xf465aa34…e5f8` → DONE, +1.994511 USDCe; rerun skipped (above threshold). MCP `fuel_agent` 1 USDC: `0xe97324fb…d764` → DONE, +0.997091 USDCe (Tempo `0xfcbe0e73…01c4`). Daily cap counter 3 of 6 |
 | 2026-10-04 | Guard test. Owner passkey wallet `0x9Bd4…0bC0` (fuelled 4 USDC from Base → 3.989291 USDCe). Agent P256 key `0x3397…Bf80` authorized: 3 USDCe/day, 30 days | Spend 1 → ok (`0xf9f1fe57…8bf2`), spend 1 → ok (`0x0e07a790…3279`), spend 1 → **blocked: `Account keychain error: SpendingLimitExceeded`** (remaining 0.999796), spend 0.9 → ok (`0x245ca427…5e69`). Tx fees (~0.00018 USDCe) are paid from the same token and count against the limit. Rejected spends fail in simulation and cost nothing. Then the owner revoked the key on /guard: the next spend (0.05) is rejected at submission with `AccountKeychainError(KeyAlreadyRevoked)`, also at no cost |
 | 2026-10-04 | Solana fuel ×2 from the live page: 2 USDC (Phantom `Bq2r…42Dq`) → agent on Tempo | Both DONE via Relay in ~1 s. Received 1.974477 and 1.974476 USDCe. Fees per transfer: LI.FI $0.005 + Relay $0.0205. Solana sigs `2hQa9o…ER97`, `457XXw…97ps`; Tempo txs `0xc26624c9…a6be`, `0x86b9e31e…f16e`. Agent balance now 5.943464 USDCe |
 | 2026-10-04 | Account subdomain changed to `pitstopgas`; Worker renamed to `fuel` (URL https://fuel.pitstopgas.workers.dev); old `pitstop` Worker deleted | Live checks pass; registry row kept (same D1) |
