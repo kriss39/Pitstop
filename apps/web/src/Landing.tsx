@@ -52,15 +52,6 @@ const PROOF = [
   { v: 'Blocked', t: 'Over the limit', d: 'stopped by Tempo', href: 'https://explore.tempo.xyz/address/0x9Bd4984986D273ee27077C42Fe63dFB712b50bC0' },
 ]
 
-const STEP_LINKS: Record<string, string> = { Fuel: '/fuel', Guard: '/guard', Pay: '/docs#pay', Refill: '/docs#agent' }
-
-const STEPS = [
-  { n: '01', t: 'Fuel', d: 'Send USDC or a chain’s own token from wherever it is. It lands on Tempo in seconds.' },
-  { n: '02', t: 'Guard', d: 'Your passkey sets a daily limit for the agent.' },
-  { n: '03', t: 'Pay', d: 'The agent pays APIs per call, within its limit.' },
-  { n: '04', t: 'Refill', d: 'Low on fuel? The agent tops itself up.' },
-]
-
 const BUILT_ON = [
   {
     name: 'LI.FI',
@@ -82,30 +73,8 @@ const BUILT_ON = [
 
 
 
-/** Plain-language story: what an agent is, why it needs fuel and a leash. */
-const STORY = [
-  {
-    k: '01 · The driver',
-    t: 'An AI agent works for you',
-    d: 'An agent is an AI, like Claude, that does tasks on its own. It researches, calls APIs and finishes the job while you do something else.',
-    scene: ['you   › Which wallets are buying LINK?', 'agent › asking Nansen…', 'agent › found 12 smart-money buyers'],
-  },
-  {
-    k: '02 · The fuel',
-    t: 'It pays for each call',
-    d: 'Good data costs money. On Tempo, services like Nansen charge the agent a cent per request, paid instantly in dollars. No account, no API key, no card.',
-    scene: ['POST nansen/token-information', '402 · pay $0.01', 'paid · 200 OK'],
-  },
-  {
-    k: '03 · The pit stop',
-    t: 'Fuel in seconds. Rules you set.',
-    d: 'Pitstop refuels the agent from any chain in seconds and gives it a key with a daily budget. You stay in charge, and the chain enforces it.',
-    scene: ['fuel   +2.00 USDC in 1.4 s', 'limit  $5 a day', '6th $1 call → refused'],
-  },
-]
-
-/** Replays a scene's lines when the card scrolls into view; lines stay visible at rest. */
-function StoryCard({ item }: { item: (typeof STORY)[number] }) {
+/** Lines of a terminal-style scene that type in once they scroll into view. */
+function Scene({ lines, label }: { lines: string[]; label?: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const [play, setPlay] = useState(false)
   useEffect(() => {
@@ -116,13 +85,11 @@ function StoryCard({ item }: { item: (typeof STORY)[number] }) {
     return () => io.disconnect()
   }, [])
   return (
-    <div ref={ref} className={`story-card${play ? ' play' : ''}`}>
-      <p className="eyebrow">{item.k}</p>
-      <h3 className="story-title">{item.t}</h3>
-      <p className="muted">{item.d}</p>
+    <div ref={ref} className={`scene-wrap${play ? ' play' : ''}`}>
+      {label && <span className="scene-label">{label}</span>}
       <div className="scene" aria-hidden>
-        {item.scene.map((line, i) => (
-          <span key={line} style={{ animationDelay: `${0.25 + i * 0.45}s` }}>
+        {lines.map((line, i) => (
+          <span key={line} style={{ animationDelay: `${0.2 + i * 0.4}s` }}>
             {line}
           </span>
         ))}
@@ -131,51 +98,197 @@ function StoryCard({ item }: { item: (typeof STORY)[number] }) {
   )
 }
 
-function Story() {
-  return (
-    <section id="why">
-      <div className="shell" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <div className="lane" />
-        <h2 className="section">Why agents need a pit stop</h2>
-        <p className="lede">
-          In a race, the driver goes fast and the pit crew keeps the car running. Your AI agent is the driver. Pitstop is the crew: fuel when
-          it runs low, and rules it can’t break.
-        </p>
-        <div className="story">
-          {STORY.map((item) => (
-            <StoryCard key={item.k} item={item} />
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-
-/** What's broken for agents today, and the fix, each backed by a mainnet result. */
-const PROBLEMS = [
-  { n: '01', p: 'The money is on other chains', pain: 'Every top-up means bridges, gas tokens and minutes of clicking.', fix: 'One link fuels the agent from the chain your money is on, in seconds.', proof: 'Lands on Tempo in ~2 s' },
-  { n: '02', p: 'Nothing stops a runaway agent', pain: 'Limits live in someone’s backend, or nowhere at all.', fix: 'The daily limit lives on-chain. Tempo refuses anything past it.', proof: '5th call refused by Tempo' },
-  { n: '03', p: 'You find out too late', pain: 'The agent runs dry or overspends before you notice.', fix: 'A live dashboard, Telegram alerts, and refills on autopilot.', proof: 'Alerts and auto-refill live' },
+const CHAPTERS = [
+  { id: 'agent', n: '01', t: 'What is an AI agent?' },
+  { id: 'pays', n: '02', t: 'What does it pay for?' },
+  { id: 'wrong', n: '03', t: 'What goes wrong today' },
+  { id: 'pitstop', n: '04', t: 'What Pitstop does' },
 ]
 
-function Problems() {
+const USES = [
+  ['Research', 'Reads markets, news and on-chain data, then writes you a summary.'],
+  ['Watching', 'Keeps an eye on prices or wallets all day and tells you when something moves.'],
+  ['Coding', 'Writes and tests code in Claude Code or Cursor while you review.'],
+  ['Busywork', 'Fills in reports, cleans data, answers routine questions.'],
+]
+
+const PRICES = [
+  ['$0.001', 'a token price', 'Codex'],
+  ['$0.01', 'smart-money data on a token', 'Nansen'],
+  ['100+', 'paid services agents can use', 'mpp.dev'],
+]
+
+const WRONG = [
+  {
+    t: 'Its money is in the wrong place',
+    d: 'Most people keep their dollars on Solana, Base or Ethereum. Agents pay on Tempo. Getting money there means finding a bridge, buying gas tokens and juggling several apps, and an agent can’t do that alone.',
+    eg: 'A research agent stops at step 3 of 5 because its wallet on Tempo is empty.',
+    fix: 'Fuel',
+  },
+  {
+    t: 'A wallet with no brakes',
+    d: 'Handing an agent a normal wallet is like handing it your card with no limit. A bug, an endless loop or a web page that tricks the agent can spend everything. A limit written in the agent’s own code can be skipped by that same code.',
+    eg: 'A loop calls a $0.01 API 50,000 times overnight: $500 gone by morning.',
+    fix: 'Guard',
+  },
+  {
+    t: 'You can’t see what it’s doing',
+    d: 'Payments happen in the background, a cent at a time. You don’t know what it bought, from whom, or when it will run out, until it already has.',
+    eg: 'You find out the agent was out of money only when its report never arrives.',
+    fix: 'Watch',
+  },
+]
+
+const DOES = [
+  {
+    k: 'Fuel',
+    t: 'Top up from any chain, in seconds',
+    d: 'Pay with USDC, or a chain’s own token like ETH or SOL, from wherever your money is. LI.FI finds the route and the agent receives dollars on Tempo about two seconds later. Every fee is shown before you sign.',
+    proof: '2 USDC from Base, landed in ~2 s',
+    href: '/fuel',
+  },
+  {
+    k: 'Guard',
+    t: 'A daily budget the chain enforces',
+    d: 'Your passkey (Face ID or Touch ID) owns the wallet. The agent gets its own key with a daily limit, one token and an end date. Tempo checks every payment against it and refuses anything over. Only you can change it.',
+    proof: '5th call refused by Tempo',
+    href: '/guard',
+  },
+  {
+    k: 'Watch',
+    t: 'See every cent',
+    d: 'A dashboard shows what’s left today, every payment and which service it went to. Telegram pings you when fuel runs low or the limit is used up.',
+    proof: 'Alerts live on Telegram',
+    href: '/dashboard',
+  },
+  {
+    k: 'Refill',
+    t: 'Tops itself up',
+    d: 'When the agent runs low, it refuels itself from a small wallet you fund once, with a daily cap. It can also ask for fuel from Claude or Cursor through Pitstop’s MCP tools.',
+    proof: 'Auto-refill and MCP fuel on mainnet',
+    href: '/docs#agent',
+  },
+]
+
+/** The plain-language guide: what an agent is, what it pays for, what goes wrong, and what Pitstop does. */
+function Guide() {
+  const [current, setCurrent] = useState(CHAPTERS[0]!.id)
+  useEffect(() => {
+    if (!('IntersectionObserver' in window)) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        const top = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
+        if (top) setCurrent(top.target.id)
+      },
+      { rootMargin: '-30% 0px -60% 0px' },
+    )
+    for (const c of CHAPTERS) {
+      const el = document.getElementById(c.id)
+      if (el) io.observe(el)
+    }
+    return () => io.disconnect()
+  }, [])
+
   return (
-    <section id="problem">
-      <div className="shell" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <div className="lane" />
-        <h2 className="section">What’s broken for agents today</h2>
-        <div className="fixes">
-          {PROBLEMS.map((row) => (
-            <div className="fix-card" key={row.n}>
-              <span className="fix-n">{row.n}</span>
-              <h3>{row.p}</h3>
-              <p className="muted">{row.pain}</p>
-              <div className="fix-rule"><span>Pitstop</span></div>
-              <p className="fix-text">{row.fix}</p>
-              <span className="proof-chip">✓ {row.proof}</span>
-            </div>
+    <section id="why">
+      <div className="shell guide">
+        <nav className="guide-nav" aria-label="Guide">
+          <p className="eyebrow">The short guide</p>
+          {CHAPTERS.map((c) => (
+            <a key={c.id} href={`#${c.id}`} aria-current={current === c.id ? 'true' : undefined}>
+              <span>{c.n}</span>
+              {c.t}
+            </a>
           ))}
+        </nav>
+
+        <div className="guide-body">
+          <article id="agent" className="chapter">
+            <span className="chapter-n">01</span>
+            <h2 className="section">What is an AI agent?</h2>
+            <p className="chapter-lead">A chatbot answers questions. An agent gets things done.</p>
+            <p>
+              You give it a goal in plain words. It splits the goal into steps, uses tools on the internet, checks what came back and keeps
+              going until the job is finished. You don’t have to sit and watch.
+            </p>
+            <Scene
+              label="One goal, three steps"
+              lines={[
+                'you    › Which tokens did smart money buy today? Add prices.',
+                'agent  › step 1 · asks Nansen for smart-money flows',
+                'agent  › step 2 · asks Codex for live prices',
+                'agent  › step 3 · writes your summary ✓',
+              ]}
+            />
+            <div className="uses">
+              {USES.map(([t, d]) => (
+                <div key={t}>
+                  <b>{t}</b>
+                  <p className="small muted">{d}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article id="pays" className="chapter">
+            <span className="chapter-n">02</span>
+            <h2 className="section">What does it pay for?</h2>
+            <p className="chapter-lead">The best tools charge per use, and the agent pays them itself.</p>
+            <p>
+              Good data, search, AI models and computing power cost money. Until now every service needed a person: sign up, add a card, copy
+              an API key, pick a monthly plan. An agent can’t do any of that.
+            </p>
+            <p>
+              On Tempo, services use <b>MPP</b>, a way to charge per request. The service replies “this costs one cent”, the agent pays in
+              digital dollars in under a second, and gets its answer. No account, no card, no key.
+            </p>
+            <Scene label="What a paid request looks like" lines={['agent  › GET nansen.ai/token-info', 'nansen › 402 · this costs $0.01', 'agent  › pays $0.01 on Tempo', 'nansen › 200 · here is your data ✓']} />
+            <div className="prices">
+              {PRICES.map(([v, t, who]) => (
+                <div key={t}>
+                  <b>{v}</b>
+                  <span>{t}</span>
+                  <small>{who}</small>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article id="wrong" className="chapter">
+            <span className="chapter-n">03</span>
+            <h2 className="section">What goes wrong today</h2>
+            <p className="chapter-lead">Paying per call is easy. Giving an agent money safely is not.</p>
+            <div className="wrong">
+              {WRONG.map((w, i) => (
+                <div key={w.t} className="wrong-card">
+                  <span className="fix-n">{String(i + 1).padStart(2, '0')}</span>
+                  <h3>{w.t}</h3>
+                  <p className="muted">{w.d}</p>
+                  <p className="eg"><b>For example:</b> {w.eg}</p>
+                  <span className="wrong-fix">Fixed by {w.fix} ↓</span>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article id="pitstop" className="chapter">
+            <span className="chapter-n">04</span>
+            <h2 className="section">What Pitstop does</h2>
+            <p className="chapter-lead">In a race, the driver goes fast and the pit crew keeps the car running. Your agent drives. Pitstop is the crew.</p>
+            <div className="does">
+              {DOES.map((d) => (
+                <a key={d.k} href={d.href} className="does-card lift">
+                  <span className="partner-role">{d.k}</span>
+                  <h3>{d.t}</h3>
+                  <p className="muted">{d.d}</p>
+                  <span className="proof-chip">✓ {d.proof}</span>
+                </a>
+              ))}
+            </div>
+            <p className="chapter-close">
+              The result: you give the agent <b>a budget, not your wallet</b>.
+            </p>
+          </article>
         </div>
       </div>
     </section>
@@ -204,9 +317,7 @@ export function Landing() {
         </div>
       </div>
 
-      <Story />
-
-      <Problems />
+      <Guide />
 
       <section>
         <div className="shell" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -217,24 +328,6 @@ export function Landing() {
                 <span className="v">{p.v}</span>
                 <b>{p.t}</b>
                 <span className="small muted">{p.d} ↗</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <div className="shell" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div className="lane" />
-          <h2 className="section">How it works</h2>
-          <div className="pitlane" aria-hidden />
-          <div className="rows">
-            {STEPS.map((s) => (
-              <a key={s.n} href={STEP_LINKS[s.t] ?? '/docs'}>
-                <span className="n">{s.n}</span>
-                <b>{s.t}</b>
-                <p>{s.d}</p>
-                <span className="go">Learn more →</span>
               </a>
             ))}
           </div>

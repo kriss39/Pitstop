@@ -4,10 +4,10 @@ import { isAddress } from 'viem'
 import { Account } from 'viem/tempo'
 import { AddressField, AgentBoard, APP_URL, BOT_HANDLE, CopyButton, PanelHead, savedKey, savedOwner, savedToken, short, usd, useAgent } from './ui'
 
-/** Recipients seen on mainnet, labelled for the activity feed. */
-const KNOWN: Record<string, string> = {
-  '0xb83df53f396a4522b5755923fe45018ef07cc92b': 'Nansen · MPP',
-  '0xc12b5d802da90d14a8b35dec1cfb6fd5ceede60b': 'Codex · MPP',
+/** MPP services seen on mainnet, by the address they're paid at. Icons are the services' own app icons. */
+const KNOWN: Record<string, { name: string; icon: string }> = {
+  '0xb83df53f396a4522b5755923fe45018ef07cc92b': { name: 'Nansen', icon: '/services/nansen.png' },
+  '0xc12b5d802da90d14a8b35dec1cfb6fd5ceede60b': { name: 'Codex', icon: '/services/codex.png' },
 }
 
 type Row = { txHash: string; time: number; to: string; amount: bigint; fee: bigint }
@@ -27,7 +27,8 @@ function group(spends: Spend[]): Row[] {
   return [...rows.values()].sort((a, b) => b.time - a.time)
 }
 
-const payee = (to: string) => KNOWN[to.toLowerCase()]?.split(' · ')[0]
+const service = (to: string) => KNOWN[to.toLowerCase()]
+const payee = (to: string) => service(to)?.name
 /** Dollars with enough decimals that sub-cent MPP payments don't show as $0.00. */
 const amt = (v: bigint) => `$${usd(v, v < 100n ? 6 : v < 10_000n ? 4 : 2)}`
 
@@ -57,11 +58,11 @@ export function Dashboard() {
   const spentTotal = rows.reduce((sum, r) => sum + r.amount + r.fee, 0n)
   // Spending per service, largest first; other transfers last.
   const byService = useMemo(() => {
-    const m = new Map<string, { name: string; total: bigint; count: number }>()
+    const m = new Map<string, { name: string; icon?: string; total: bigint; count: number }>()
     for (const r of payments) {
       // Known MPP services by name; plain transfers to anyone else share one row.
       const name = payee(r.to) ?? 'Other transfers'
-      const e = m.get(name) ?? { name, total: 0n, count: 0 }
+      const e = m.get(name) ?? { name, icon: service(r.to)?.icon, total: 0n, count: 0 }
       e.total += r.amount + r.fee
       e.count++
       m.set(name, e)
@@ -69,6 +70,8 @@ export function Dashboard() {
     const other = (e: { name: string }) => (e.name === 'Other transfers' ? 1 : 0)
     return [...m.values()].sort((a, b) => other(a) - other(b) || (b.total > a.total ? 1 : -1))
   }, [rows])
+  // Bars are scaled to the biggest row, wherever it sits in the list.
+  const serviceMax = Math.max(1, ...byService.map((e) => Number(e.total)))
   const watchCmd = `/watch ${wallet} ${isAddress(key) ? key : ''}`.trim()
   const mcp = JSON.stringify(
     {
@@ -143,12 +146,17 @@ export function Dashboard() {
             {visible.length ? (
               <ul className="feed">
                 {visible.map((r) => {
-                  const name = r.amount ? payee(r.to) : undefined
+                  const svc = r.amount ? service(r.to) : undefined
+                  const name = svc?.name
                   return (
                     <li key={r.txHash}>
-                      <span className={`avatar${r.amount ? '' : ' fee'}`} aria-hidden>
-                        {r.amount ? (name?.[0] ?? '→') : '⛽'}
-                      </span>
+                      {svc ? (
+                        <img className="avatar" src={svc.icon} alt="" width={34} height={34} />
+                      ) : (
+                        <span className={`avatar${r.amount ? '' : ' fee'}`} aria-hidden>
+                          {r.amount ? '→' : '⛽'}
+                        </span>
+                      )}
                       <span style={{ minWidth: 0 }}>
                         {r.amount ? (name ? <>{name} <span className="muted small">· MPP</span></> : <>To <code>{short(r.to)}</code></>) : 'Tempo network fee'}
                         <br />
@@ -176,8 +184,23 @@ export function Dashboard() {
 
         <div className="col">
           <section className="panel">
-            <span className="swap-label">Fuel tank</span>
+            <span className="swap-label">Fuel tank · on Tempo</span>
             <div className="tank">${agent.balance != null ? usd(agent.balance) : '–'}</div>
+            {agent.balances && (
+              <ul className="tank-split">
+                {agent.balances
+                  .filter((b) => b.raw > 0n || b.symbol === token)
+                  .map((b) => (
+                    <li key={b.symbol} className={b.symbol === token ? 'spendable' : undefined}>
+                      <span>
+                        {b.symbol}
+                        {b.symbol === token ? <small> · the agent spends this</small> : <small> · not spendable by the key</small>}
+                      </span>
+                      <b>${usd(b.raw)}</b>
+                    </li>
+                  ))}
+              </ul>
+            )}
             <div className="row">
               <a className="btn signal-btn" href={`/fuel?to=${wallet}`}>Fuel now</a>
               <a className="btn ghost" href={`/guard${isAddress(key) ? `?key=${key}` : ''}`}>Change limit</a>
@@ -191,9 +214,11 @@ export function Dashboard() {
               <ul className="by-service">
                 {byService.map((e) => (
                   <li key={e.name}>
-                    <span>{e.name}<small> · {e.count} {e.name === 'Other transfers' ? (e.count === 1 ? 'transfer' : 'transfers') : e.count === 1 ? 'call' : 'calls'}</small></span>
+                    <span className="svc">
+                      {e.icon ? <img src={e.icon} alt="" width={20} height={20} /> : <i className="svc-dot" aria-hidden />}
+                      {e.name}<small> · {e.count} {e.name === 'Other transfers' ? (e.count === 1 ? 'transfer' : 'transfers') : e.count === 1 ? 'call' : 'calls'}</small></span>
                     <b>{amt(e.total)}</b>
-                    <i style={{ width: `${Math.max(4, (Number(e.total) / Number(byService[0]!.total)) * 100)}%` }} aria-hidden />
+                    <i style={{ width: `${Math.max(4, (Number(e.total) / serviceMax) * 100)}%` }} aria-hidden />
                   </li>
                 ))}
               </ul>

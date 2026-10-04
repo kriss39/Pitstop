@@ -125,6 +125,14 @@ export function Fuel() {
   // USDC is checked against the minimum before quoting; gas tokens once the quote prices them.
   const amountOk = Number.isFinite(amountNum) && amountNum > 0 && (useNative || amountNum >= MIN_USD)
   const fromAmount = useMemo(() => (amountOk ? parseUnits(amount, pay.decimals) : 0n), [amount, amountOk, pay.decimals])
+  // What's typed, even below the minimum, so the balance slider can follow it.
+  const typedAmount = useMemo(() => {
+    try {
+      return amountNum > 0 ? parseUnits(amount, pay.decimals) : 0n
+    } catch {
+      return 0n
+    }
+  }, [amount, pay.decimals])
   const isEvm = !!src.chain
   const sender = isEvm ? w.evm?.account : w.solana?.address
   const onChain = isEvm && w.evm?.chainId === src.chainId
@@ -280,7 +288,17 @@ export function Fuel() {
   const [editAgent, setEditAgent] = useState(!agentOk)
   const balanceText =
     isEvm && srcBalance != null ? `${Number(formatUnits(srcBalance, pay.decimals)).toFixed(pay.decimals > 6 ? 5 : 2)} ${pay.symbol}` : undefined
-  const fmtPay = (v: bigint) => Number(formatUnits(v, pay.decimals)).toFixed(pay.decimals > 6 ? 5 : 2)
+  // Gas tokens keep 5% back so the wallet can still pay the network fee.
+  const spendable = srcBalance != null ? (useNative ? (srcBalance * 95n) / 100n : srcBalance) : undefined
+  /** Token amount as input text, rounded down so it never exceeds the balance. */
+  const payText = (v: bigint) => {
+    const unit = 10n ** BigInt(pay.decimals - (pay.decimals > 6 ? 6 : 2))
+    return formatUnits((v / unit) * unit, pay.decimals)
+  }
+  const walletSlide =
+    spendable != null && spendable > 0n
+      ? { max: spendable, amount: typedAmount, token: { symbol: pay.symbol, decimals: pay.decimals }, set: (v: bigint) => setAmount(payText(v)) }
+      : undefined
 
   // One button, whose job depends on what's missing. Problems with the transfer itself come before the wallet.
   const cta =
@@ -306,7 +324,7 @@ export function Fuel() {
           <div className="swap-top">
             <span className="swap-label">You pay</span>
             {balanceText && (
-              <button className="link-btn" onClick={() => srcBalance != null && setAmount(fmtPay(srcBalance))} title="Use full balance">
+              <button className="link-btn" onClick={() => spendable != null && setAmount(payText(spendable))} title={useNative ? 'Use 95% of the balance (the rest pays gas)' : 'Use full balance'}>
                 Balance {balanceText}
               </button>
             )}
@@ -421,18 +439,22 @@ export function Fuel() {
         </p>
       </section>
 
-      {quote && (
+      {(quote || (walletSlide && !busy && agentOk)) && (
         <Breakdown
           quote={quote}
+          belowMin={!useNative && amountNum > 0 && amountNum < MIN_USD}
           chain={src.label}
           loading={quoting}
-          amountUsd={useNative ? quote.fromAmountUSD : amountNum}
+          amountUsd={useNative ? quote?.fromAmountUSD : amountNum}
           onAmount={(v) => {
+            if (!useNative) return setAmount(String(v))
             // Gas tokens: turn the dollar amount into tokens at the quote's price.
-            const price = quote.fromAmountUSD! / Number(formatUnits(quote.fromAmount, quote.fromToken.decimals))
-            setAmount(useNative ? String(Number((v / price).toFixed(8))) : String(v))
+            if (!quote?.fromAmountUSD) return
+            const price = quote.fromAmountUSD / Number(formatUnits(quote.fromAmount, quote.fromToken.decimals))
+            setAmount(String(Number((v / price).toFixed(8))))
           }}
           native={useNative}
+          wallet={walletSlide}
         />
       )}
 
@@ -489,19 +511,98 @@ function costSummary(quote: FuelQuote, native: boolean) {
 /** Itemized route: what you send, each cost on the way, and what the agent gets. Live from the quote. */
 function Breakdown({
   quote,
+  belowMin,
   chain,
   loading,
   amountUsd,
   onAmount,
   native,
+  wallet,
 }: {
-  quote: FuelQuote
+  quote?: FuelQuote
+  /** True when the amount is under the minimum, so there's no quote to show. */
+  belowMin?: boolean
   chain: string
   loading: boolean
   amountUsd?: number
   onAmount: (v: number) => void
   native: boolean
+  /** With a connected wallet, the slider runs from 0 to what the wallet can send. */
+  wallet?: { max: bigint; amount: bigint; token: { symbol: string; decimals: number }; set: (v: bigint) => void }
 }) {
+  const sliderValue = Math.min(SLIDER_MAX, Math.max(MIN_USD, amountUsd ?? MIN_USD))
+  const walletPermille = wallet ? Number((wallet.amount > wallet.max ? wallet.max : wallet.amount) * 1000n / wallet.max) : 0
+
+  return (
+    <section id="breakdown" className={`breakdown rise${loading ? ' stale' : ''}`} aria-label="Where your money goes" aria-busy={loading}>
+      <div className="bd-head">
+        <h2>Where your money goes</h2>
+        <span className="muted small">{loading ? 'Updating…' : quote ? `Live quote · via ${toolName(quote.tool)}` : ''}</span>
+      </div>
+
+      {wallet ? (
+        <div className="bd-play">
+          <label htmlFor="bd-range" className="small muted">
+            Your balance: <b>{tokenAmt(wallet.max, wallet.token)}</b> on {chain}
+          </label>
+          <input
+            id="bd-range"
+            type="range"
+            min={0}
+            max={1000}
+            step={1}
+            value={walletPermille}
+            onChange={(e) => wallet.set((wallet.max * BigInt(e.target.value)) / 1000n)}
+            style={{ '--f': walletPermille / 1000 } as CSSProperties}
+          />
+          <div className="bd-chips">
+            {[25, 50, 75, 100].map((p) => (
+              <button key={p} className={Math.abs(walletPermille - p * 10) <= 2 ? 'on' : ''} onClick={() => wallet.set((wallet.max * BigInt(p)) / 100n)}>
+                {p === 100 ? 'Max' : `${p}%`}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        amountUsd != null && (
+          <div className="bd-play">
+            <label htmlFor="bd-range" className="small muted">Try another amount (connect a wallet to slide over your balance)</label>
+            <input
+              id="bd-range"
+              type="range"
+              min={MIN_USD}
+              max={SLIDER_MAX}
+              step={5}
+              value={sliderValue}
+              onChange={(e) => onAmount(Number(e.target.value))}
+              style={{ '--f': (sliderValue - MIN_USD) / (SLIDER_MAX - MIN_USD) } as CSSProperties}
+            />
+            <div className="bd-chips">
+              {[5, 10, 25, 50, 100].map((v) => (
+                <button key={v} className={Math.abs(amountUsd - v) < 0.5 ? 'on' : ''} onClick={() => onAmount(v)}>
+                  ${v}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      )}
+
+      {quote ? (
+        <CostFlow quote={quote} chain={chain} native={native} />
+      ) : (
+        <p className="small muted">{!belowMin
+            ? 'Getting a quote…'
+            : wallet && !native && Number(formatUnits(wallet.max, wallet.token.decimals)) < MIN_USD
+              ? `Your balance on ${chain} is under the $${MIN_USD} minimum. Add funds there or pick another chain.`
+              : `Slide up: the minimum is $${MIN_USD} per transfer.`}</p>
+      )}
+    </section>
+  )
+}
+
+/** The itemized list: what you send, each cost on the way, what arrives, and the total. */
+function CostFlow({ quote, chain, native }: { quote: FuelQuote; chain: string; native: boolean }) {
   const bridge = toolName(quote.tool)
   const label = (c: FuelCost) =>
     c.kind === 'integrator' ? { t: 'Pitstop fee', d: 'Keeps Pitstop running' }
@@ -514,38 +615,9 @@ function Breakdown({
   // With a gas token, the swap into a stablecoin and price moves cost something too.
   const { swapUsd, totalUsd, share } = costSummary(quote, native)
 
-  const sliderValue = Math.min(SLIDER_MAX, Math.max(MIN_USD, amountUsd ?? MIN_USD))
 
   return (
-    <section id="breakdown" className={`breakdown rise${loading ? ' stale' : ''}`} aria-label="Where your money goes" aria-busy={loading}>
-      <div className="bd-head">
-        <h2>Where your money goes</h2>
-        <span className="muted small">{loading ? 'Updating…' : `Live quote · via ${bridge}`}</span>
-      </div>
-
-      {amountUsd != null && (
-        <div className="bd-play">
-          <label htmlFor="bd-range" className="small muted">Try another amount</label>
-          <input
-            id="bd-range"
-            type="range"
-            min={MIN_USD}
-            max={SLIDER_MAX}
-            step={5}
-            value={sliderValue}
-            onChange={(e) => onAmount(Number(e.target.value))}
-            style={{ '--f': (sliderValue - MIN_USD) / (SLIDER_MAX - MIN_USD) } as CSSProperties}
-          />
-          <div className="bd-chips">
-            {[5, 10, 25, 50, 100].map((v) => (
-              <button key={v} className={Math.abs(amountUsd - v) < 0.5 ? 'on' : ''} onClick={() => onAmount(v)}>
-                ${v}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
+    <>
       <ol className="bd-flow">
         <li className="bd-start">
           <span className="bd-t">You send<small>from {chain}</small></span>
@@ -599,6 +671,6 @@ function Breakdown({
       <p className="small muted">
         The percentage fees grow with the amount. The bridge and gas costs stay about the same, so larger transfers cost less per dollar.
       </p>
-    </section>
+    </>
   )
 }

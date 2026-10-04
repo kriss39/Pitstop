@@ -8,6 +8,7 @@ import {
   type AgentKeyStatus,
   type FuelTokenSymbol,
   type Spend,
+  type TokenBalance,
 } from '@pitstop/sdk'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { formatUnits, isAddress, type Address, type Hex } from 'viem'
@@ -159,6 +160,8 @@ export type AgentData = {
   /** Token the key is scoped to; limits and spends are read for it. */
   token: FuelTokenSymbol
   balance?: bigint
+  /** Balance per Tempo stablecoin. */
+  balances?: TokenBalance[]
   status?: AgentKeyStatus
   spends?: Spend[]
   loading: boolean
@@ -178,7 +181,7 @@ export function useAgent(wallet?: string, key?: string, withSpends = false, toke
         key && isAddress(key) ? getAgentKeyStatus({ wallet: wallet as Address, key: key as Address, token: TEMPO_TOKENS[token] }) : undefined,
         withSpends ? getRecentSpends({ wallet: wallet as Address, token: TEMPO_TOKENS[token] }).catch(() => undefined) : undefined,
       ])
-      setData({ token, balance: totalUsd(balances), status, spends, loading: false })
+      setData({ token, balance: totalUsd(balances), balances, status, spends, loading: false })
     } catch (e) {
       setData((d) => ({ ...d, loading: false, error: e instanceof Error ? e.message.split('\n')[0] : String(e) }))
     }
