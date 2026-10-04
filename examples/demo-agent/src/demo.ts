@@ -7,8 +7,10 @@ import { codexPrice, nansenTokenInfo } from './services.js'
 // End-to-end demo: a research agent checks tokens with two paid MPP services,
 // Codex for the price ($0.001) and Nansen for token intelligence ($0.01),
 // paying with its Pitstop access key until the owner's daily limit stops it.
-//   pnpm demo [maxTokens=10]
-const maxTokens = Number(process.argv[2] ?? 10)
+// When Nansen no longer fits the budget, it keeps buying cheaper prices until
+// those are refused too, so the day's budget really runs out.
+//   pnpm demo [maxRounds=12]
+const maxRounds = Number(process.argv[2] ?? 12)
 const key = loadKey()
 if (!key) throw new Error('No access key. Run: pnpm key')
 const wallet = requireWallet()
@@ -49,22 +51,29 @@ async function paid(label: string, price: string, call: () => Promise<string>): 
   }
 }
 
-for (const token of TOKENS.slice(0, maxTokens)) {
+let infoBlocked = false
+for (let round = 0; round < maxRounds; round++) {
+  const token = TOKENS[round % TOKENS.length]!
   console.log(`${token.name}`)
   const okPrice = await paid('Codex · price', '$0.001', async () => {
     const p = await codexPrice(mppx.fetch, { address: token.address, networkId: 1 })
     return p != null ? `$${p.toFixed(p < 10 ? 4 : 2)}` : 'no price'
   })
   if (!okPrice) break
+  if (infoBlocked) continue
   const okInfo = await paid('Nansen · token intelligence', '$0.01', async () => {
     const cap = await nansenTokenInfo(mppx.fetch, { chain: 'ethereum', address: token.address })
     return cap ? `mcap $${(cap / 1e9).toFixed(2)}B` : 'ok'
   })
-  if (!okInfo) break
+  if (!okInfo) {
+    infoBlocked = true
+    console.log('  (a Nansen call no longer fits; cheaper price lookups continue)')
+  }
 }
 
 const end = await getAgentKeyStatus({ wallet, key: key.address, token: AGENT_TOKEN_ADDRESS })
-if (end.remaining < 10_000n) {
+// Below $0.001 not even the cheapest call fits.
+if (end.remaining < 1_000n) {
   console.log(`\nThe agent hit its daily limit. Only the owner can raise it: ${GUARD_URL}/guard?key=${key.address}`)
   process.exitCode = 2
 }
