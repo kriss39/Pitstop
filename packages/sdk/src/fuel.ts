@@ -205,7 +205,8 @@ function toCosts(q: RawQuote, integratorFee?: number): FuelCost[] {
     const name = f.name ?? 'Fee'
     if (/lifi/i.test(name) && integratorFee && base.percentage && base.percentage >= integratorFee) {
       const share = integratorFee / base.percentage
-      const amount = (base.amount * BigInt(Math.round(share * 1e6))) / 1_000_000n
+      // Integer math in parts per million, so 0.1% of 5 USDC is exactly 5000 base units.
+      const amount = (base.amount * BigInt(Math.round(integratorFee * 1e6))) / BigInt(Math.round(base.percentage * 1e6))
       costs.push({ ...base, kind: 'integrator', name: 'Integrator fee', amount, usd: base.usd * share, percentage: integratorFee })
       costs.push({
         ...base,
