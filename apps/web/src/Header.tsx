@@ -5,7 +5,7 @@ const LINKS = [
   { href: '/fuel', label: 'Fuel' },
   { href: '/guard', label: 'Guard' },
   { href: '/dashboard', label: 'Dashboard' },
-  { href: '/#docs', label: 'Docs' },
+  { href: '/docs', label: 'Docs' },
 ]
 
 export function Header({ path }: { path: string }) {
@@ -18,7 +18,7 @@ export function Header({ path }: { path: string }) {
         </a>
         <nav className="nav" aria-label="Pages">
           {LINKS.map((l) => (
-            <a key={l.href} href={l.href} aria-current={!l.href.includes('#') && path.startsWith(l.href) ? 'page' : undefined}>
+            <a key={l.href} href={l.href} aria-current={path.startsWith(l.href) ? 'page' : undefined}>
               {l.label}
             </a>
           ))}

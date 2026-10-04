@@ -76,27 +76,8 @@ const BUILT_ON = [
   },
 ]
 
-const MCP_SNIPPET = `{
-  "mcpServers": {
-    "pitstop": {
-      "command": "node",
-      "args": ["packages/mcp/dist/index.js"],
-      "env": { "AGENT_WALLET": "0x…" }
-    }
-  }
-}`
 
-const AGENT_CMDS = `pnpm key        # create the agent's key
-pnpm demo       # pay Nansen until the limit stops it
-pnpm watch      # keep the agent fuelled`
 
-const FAQ: [string, string][] = [
-  ['Does Pitstop hold my money?', 'No. You sign every transfer in your own wallet. Pitstop never holds keys or funds.'],
-  ['What happens at the limit?', 'Tempo refuses the payment. Nothing is spent. The limit resets after 24 hours.'],
-  ['Can the agent raise its own limit?', 'No. Only your passkey can change it.'],
-  ['What does it cost?', 'A few cents in bridge fees, plus a 0.25% Pitstop fee shown in every quote.'],
-  ['What if I lose my passkey?', 'You can’t change the limit any more, but the agent’s key still expires. Keep small balances.'],
-]
 
 
 /** Plain-language story: what an agent is, why it needs fuel and a leash. */
@@ -239,7 +220,7 @@ export function Landing() {
             <div className="cta rise d2">
               <a className="btn primary" href="/fuel">Fuel an agent</a>
               <a className="btn" href="/guard">Set a limit</a>
-              <a className="btn ghost" href="#docs">How to use</a>
+              <a className="btn ghost" href="/docs">How to use</a>
             </div>
           </div>
           <ReplayBoard />
@@ -334,41 +315,20 @@ export function Landing() {
       </section>
 
       <section id="docs">
-        <div className="shell" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="shell" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div className="lane" />
           <h2 className="section">Docs</h2>
-          <div className="docs-grid">
-            <div className="card">
-              <p className="eyebrow">For you</p>
-              <ol className="small docs-list">
-                <li>On <a href="/guard">Guard</a>, create a passkey. That makes your agent’s wallet.</li>
-                <li>On <a href="/fuel">Fuel</a>, send it a few USDC.</li>
-                <li>Paste the agent’s key, pick a daily limit, confirm with your passkey.</li>
-              </ol>
-            </div>
-            <div className="card">
-              <p className="eyebrow">For the agent</p>
-              <code className="block nowrap">{AGENT_CMDS}</code>
-            </div>
-            <div className="card">
-              <p className="eyebrow">In Claude or Cursor</p>
-              <code className="block nowrap">{MCP_SNIPPET}</code>
-              <div className="row"><CopyButton text={MCP_SNIPPET} label="Copy" /></div>
-            </div>
-            <div className="card">
-              <p className="eyebrow">Alerts</p>
-              <p className="small muted">
-                Message <a href={`https://t.me/${BOT_HANDLE}`} target="_blank" rel="noreferrer">@{BOT_HANDLE}</a> on Telegram:{' '}
-                <code>/watch &lt;wallet&gt; &lt;key&gt;</code>. It tells you when fuel is low or the limit is used up.
-              </p>
-            </div>
-          </div>
-          <div className="faq">
-            {FAQ.map(([q, a]) => (
-              <details key={q}>
-                <summary>{q}</summary>
-                <p className="small">{a}</p>
-              </details>
+          <div className="doc-teaser">
+            {[
+              ['quickstart', 'Quickstart', 'From zero to a guarded agent in five steps.'],
+              ['agent', 'Set up the agent', 'Commands and settings for the agent’s machine.'],
+              ['mcp', 'Claude & Cursor', 'Add Pitstop as an MCP server.'],
+              ['security', 'Security', 'What the agent can and can’t do.'],
+            ].map(([id, t, d]) => (
+              <a key={id} className="card lift" href={`/docs#${id}`}>
+                <h3>{t} →</h3>
+                <p className="small muted">{d}</p>
+              </a>
             ))}
           </div>
         </div>
@@ -381,7 +341,7 @@ export function Landing() {
             <a href="/fuel">Fuel</a>
             <a href="/guard">Guard</a>
             <a href="/dashboard">Dashboard</a>
-            <a href="/#docs">Docs</a>
+            <a href="/docs">Docs</a>
           </span>
         </div>
       </footer>

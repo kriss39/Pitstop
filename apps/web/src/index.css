@@ -244,6 +244,37 @@ dialog.sheet::backdrop { background: rgb(0 0 0 / 0.5); }
 .faq summary { color: var(--ink); font-weight: 600; font-size: 15px; }
 .faq details p { margin-top: 8px; color: var(--muted); max-width: 72ch; }
 
+/* Docs page */
+.docs-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 40px; align-items: start; }
+.toc { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 2px; border-left: 2px solid var(--line); }
+.toc a { text-decoration: none; color: var(--muted); font-size: 14px; padding: 6px 12px; margin-left: -2px; border-left: 2px solid transparent; }
+.toc a:hover { color: var(--ink); }
+.toc a[aria-current='true'] { color: var(--ink); border-left-color: var(--signal); font-weight: 600; }
+.doc-body { display: flex; flex-direction: column; gap: 44px; min-width: 0; max-width: 760px; }
+.doc-section { display: flex; flex-direction: column; gap: 14px; scroll-margin-top: 84px; }
+.doc-section h2 { font: 800 34px/1 var(--display); text-transform: uppercase; padding-top: 4px; }
+.doc-section p, .doc-list { line-height: 1.6; }
+.doc-section code { background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; font-size: 0.86em; }
+.doc-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.doc-steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: 10px; }
+.doc-steps li { counter-increment: step; position: relative; padding: 14px 16px 14px 56px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.doc-steps li::before { content: counter(step); position: absolute; left: 14px; top: 12px; width: 28px; height: 28px; border-radius: 8px; background: var(--signal); color: var(--signal-ink); display: grid; place-items: center; font: 800 18px/1 var(--display); }
+.doc-flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.doc-flow > div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 4px; position: relative; }
+.doc-flow .n { font: 900 26px/1 var(--display); color: var(--signal); -webkit-text-stroke: 1px var(--ink); }
+.table-wrap { overflow-x: auto; }
+.doc-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.doc-table th { text-align: left; font: 600 11px/1.2 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-bottom: 2px solid var(--line); }
+.doc-table td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.doc-table td:first-child { white-space: nowrap; font-weight: 600; }
+.doc-code { position: relative; background: var(--slab); border: 1px solid var(--slab-line); border-radius: 12px; }
+.doc-code pre { margin: 0; padding: 16px 18px; overflow-x: auto; color: var(--slab-ink); font: 13px/1.6 var(--mono); }
+.doc-code button { position: absolute; top: 8px; right: 8px; background: var(--slab); color: var(--slab-ink); border-color: var(--slab-line); }
+.doc-note { margin: 0; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); border-left: 4px solid var(--ok); background: var(--panel); font-size: 14px; }
+.doc-note.warn { border-left-color: var(--signal); }
+.doc-teaser { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.doc-teaser a { text-decoration: none; }
+
 /* Dashboard */
 .dash { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
 .dash .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -283,7 +314,11 @@ dialog.sheet::backdrop { background: rgb(0 0 0 / 0.5); }
 .brand:hover .brand-mark { transform: rotate(-8deg); }
 
 @media (max-width: 860px) {
-  .hero, .split, .dash, .docs-grid, .builton, .story, .problem-row { grid-template-columns: 1fr; }
+  .hero, .split, .dash, .docs-grid, .builton, .story, .problem-row, .docs-layout { grid-template-columns: 1fr; }
+  .toc { position: static; flex-direction: row; overflow-x: auto; border-left: 0; border-bottom: 2px solid var(--line); }
+  .toc a { white-space: nowrap; margin-left: 0; border-left: 0; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+  .toc a[aria-current='true'] { border-bottom-color: var(--signal); }
+  .doc-flow, .doc-teaser { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .problems-head { display: none; }
   .m-label { display: block; }
   .problem-row { gap: 12px; }

@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Dashboard } from './Dashboard'
+import { Docs } from './Docs'
 import { Fuel } from './Fuel'
 import { Guard } from './Guard'
 import { Header } from './Header'
@@ -16,6 +17,7 @@ function Page() {
   if (path.startsWith('/fuel') || (path === '/' && search.has('to'))) return <Fuel />
   if (path.startsWith('/guard')) return <Guard />
   if (path.startsWith('/dashboard')) return <Dashboard />
+  if (path.startsWith('/docs')) return <Docs />
   return <Landing />
 }
 
