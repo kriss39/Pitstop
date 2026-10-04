@@ -1,0 +1,236 @@
+import {
+  getAgentKeyStatus,
+  getBalance,
+  getRecentSpends,
+  totalUsd,
+  type AgentKeyStatus,
+  type Spend,
+} from '@pitstop/sdk'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { formatUnits, isAddress, type Address } from 'viem'
+
+export const APP_URL = 'https://fuel.pitstopgas.workers.dev'
+export const BOT_HANDLE = 'pitstop_alert_bot'
+
+export const usd = (v: bigint, dp = 2) => Number(formatUnits(v, 6)).toFixed(dp)
+/** Dollars with 4 decimals under $1, so a nearly used-up limit never rounds up to a cent. */
+export const money = (v: bigint) => usd(v, v < 1_000_000n ? 4 : 2)
+export const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
+
+/** Racing-flag status vocabulary. */
+export type Flag = 'green' | 'yellow' | 'red' | 'black' | 'chequered' | 'none'
+
+export function FlagChip({ flag, children }: { flag: Flag; children: ReactNode }) {
+  return (
+    <span className={`flag flag-${flag}`}>
+      <i aria-hidden />
+      {children}
+    </span>
+  )
+}
+
+/** Segmented meter: lit cells are what's left, dim cells are spent. */
+export function FuelCells({ total, left }: { total: number; left: number }) {
+  return (
+    <div className="cells" role="meter" aria-valuemin={0} aria-valuemax={total} aria-valuenow={left} aria-label={`${left} of ${total} left`}>
+      {Array.from({ length: total }, (_, i) => (
+        <span key={i} className={i < left ? 'on' : 'spent'} />
+      ))}
+    </div>
+  )
+}
+
+export function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      className="ghost small-btn"
+      onClick={() => {
+        navigator.clipboard.writeText(text).then(
+          () => {
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1500)
+          },
+          () => {},
+        )
+      }}
+    >
+      {copied ? 'Copied' : label}
+    </button>
+  )
+}
+
+export function PanelHead({ num, title, children }: { num?: string; title: string; children?: ReactNode }) {
+  return (
+    <div className="panel-head">
+      {num && <span className="num">{num}</span>}
+      <h2>{title}</h2>
+      {children && <span className="spacer" />}
+      {children}
+    </div>
+  )
+}
+
+/** Below one cent the key can't pay even the cheapest MPP call. */
+const USED_UP = 10_000n
+
+export type KeyView = {
+  flag: Flag
+  label: string
+  /** Daily limit: as set on this device, or estimated from what's left plus spends this period. */
+  limit?: bigint
+  limitEstimated?: boolean
+  spentInPeriod?: bigint
+  cells?: { total: number; left: number }
+}
+
+/** Turns on-chain key state (plus recent spends) into a flag, a label and a meter. */
+export function describeKey(status: AgentKeyStatus | undefined, spends: Spend[] | undefined, knownLimit?: bigint): KeyView {
+  if (!status) return { flag: 'none', label: 'No key' }
+  if (status.revoked) return { flag: 'black', label: 'Revoked' }
+  if (!status.authorized) return { flag: 'none', label: 'Not authorized' }
+  if (status.expiry * 1000 < Date.now()) return { flag: 'chequered', label: 'Expired' }
+
+  const periodStart = status.periodEnd ? status.periodEnd - 86_400 : undefined
+  const spentInPeriod =
+    spends && periodStart ? spends.filter((s) => s.time >= periodStart).reduce((sum, s) => sum + s.amount, 0n) : undefined
+  const estimated = spentInPeriod != null ? status.remaining + spentInPeriod : undefined
+  const limit = knownLimit != null && knownLimit >= status.remaining ? knownLimit : estimated
+  const limitEstimated = limit != null && limit === estimated && knownLimit == null
+
+  let cells: KeyView['cells']
+  if (limit && limit > 0n) {
+    // One cell per cent for small demo limits; otherwise 20 equal cells.
+    const total = limit <= 200_000n ? Math.max(1, Math.round(Number(limit) / 10_000)) : 20
+    const left = Math.max(0, Math.min(total, Math.floor((Number(status.remaining) / Number(limit)) * total + 1e-9)))
+    cells = { total, left }
+  }
+
+  const base = { limit, limitEstimated, spentInPeriod, cells }
+  if (status.remaining < USED_UP) return { flag: 'red', label: 'Limit used — blocked', ...base }
+  if (limit && Number(status.remaining) / Number(limit) <= 0.2) return { flag: 'yellow', label: 'Near limit', ...base }
+  return { flag: 'green', label: 'Active', ...base }
+}
+
+export function countdown(toUnix?: number) {
+  if (!toUnix) return '–'
+  const s = Math.max(0, toUnix - Math.floor(Date.now() / 1000))
+  const d = Math.floor(s / 86_400)
+  const h = Math.floor((s % 86_400) / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`
+}
+
+export type AgentData = {
+  balance?: bigint
+  status?: AgentKeyStatus
+  spends?: Spend[]
+  loading: boolean
+  error?: string
+  refresh: () => Promise<void>
+}
+
+/** Live view of an agent wallet and (optionally) its access key. */
+export function useAgent(wallet?: string, key?: string, withSpends = false): AgentData {
+  const [data, setData] = useState<Omit<AgentData, 'refresh'>>({ loading: false })
+  const refresh = useCallback(async () => {
+    if (!wallet || !isAddress(wallet)) return setData({ loading: false })
+    setData((d) => ({ ...d, loading: true, error: undefined }))
+    try {
+      const [balances, status, spends] = await Promise.all([
+        getBalance({ address: wallet as Address }),
+        key && isAddress(key) ? getAgentKeyStatus({ wallet: wallet as Address, key: key as Address }) : undefined,
+        withSpends ? getRecentSpends({ wallet: wallet as Address }).catch(() => undefined) : undefined,
+      ])
+      setData({ balance: totalUsd(balances), status, spends, loading: false })
+    } catch (e) {
+      setData((d) => ({ ...d, loading: false, error: e instanceof Error ? e.message.split('\n')[0] : String(e) }))
+    }
+  }, [wallet, key, withSpends])
+  useEffect(() => void refresh(), [refresh])
+  return { ...data, refresh }
+}
+
+/** Pit Board card for an agent: what's left today, in big numerals, plus the flag. */
+export function AgentBoard({ data, keyAddress, tag = 'P1' }: { data: AgentData; keyAddress?: string; tag?: string }) {
+  const view = describeKey(data.status, data.spends, keyAddress ? savedLimit.get(keyAddress) : undefined)
+  const cls = view.flag === 'red' ? 'board blocked' : view.flag === 'black' ? 'board revoked' : 'board'
+  return (
+    <div className={cls} aria-live="polite">
+      <div className="board-top">
+        <span className="board-tag">{tag} · Agent</span>
+        <FlagChip flag={view.flag}>{view.label}</FlagChip>
+      </div>
+      <div>
+        <div className="board-big">${data.status ? money(data.status.remaining) : '–'}</div>
+        <div className="board-label">
+          left today{view.limit != null && ` · of ${view.limitEstimated ? '≈' : ''}$${money(view.limit)}`}
+        </div>
+      </div>
+      {view.cells && <FuelCells {...view.cells} />}
+      <div className="board-foot">
+        <span>
+          Fuel <b>${data.balance != null ? usd(data.balance) : '–'}</b>
+        </span>
+        <span>
+          Resets in <b>{countdown(data.status?.periodEnd)}</b>
+        </span>
+        <span>
+          Key expires in <b>{countdown(data.status?.expiry)}</b>
+        </span>
+        {keyAddress && (
+          <span>
+            Key <b>{short(keyAddress)}</b>
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Remembers the owner's last agent key so the dashboard can find it. */
+export const savedKey = {
+  get(): string | undefined {
+    try {
+      return localStorage.getItem('pitstop.agentKey') ?? undefined
+    } catch {
+      return undefined
+    }
+  },
+  set(key: string) {
+    try {
+      localStorage.setItem('pitstop.agentKey', key)
+    } catch {
+      // ignore
+    }
+  },
+}
+
+/** The daily limit the owner set for a key on this device (the chain only exposes what's left). */
+export const savedLimit = {
+  get(key: string): bigint | undefined {
+    try {
+      const v = localStorage.getItem(`pitstop.limit.${key.toLowerCase()}`)
+      return v ? BigInt(v) : undefined
+    } catch {
+      return undefined
+    }
+  },
+  set(key: string, limit: bigint) {
+    try {
+      localStorage.setItem(`pitstop.limit.${key.toLowerCase()}`, limit.toString())
+    } catch {
+      // ignore
+    }
+  },
+}
+
+/** The guarded wallet derived from the owner passkey saved on this device, if any. */
+export function savedOwner(): { id: string; publicKey: `0x${string}` } | undefined {
+  try {
+    const raw = localStorage.getItem('pitstop.owner.v1')
+    return raw ? JSON.parse(raw) : undefined
+  } catch {
+    return undefined
+  }
+}

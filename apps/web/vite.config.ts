@@ -13,7 +13,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      __DEFAULT_AGENT__: JSON.stringify(env.AGENT_ADDRESS ?? ''),
+      // Prefill the agent address only on the local dev server; the public site starts empty.
+      __DEFAULT_AGENT__: JSON.stringify(mode === 'development' ? (env.AGENT_WALLET ?? env.AGENT_ADDRESS ?? '') : ''),
       __LIFI_INTEGRATOR__: JSON.stringify(env.LIFI_INTEGRATOR ?? 'pitstop'),
     },
     server: {

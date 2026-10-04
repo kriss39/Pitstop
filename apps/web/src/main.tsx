@@ -1,23 +1,29 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { App } from './App'
+import { Dashboard } from './Dashboard'
+import { Fuel } from './Fuel'
 import { Guard } from './Guard'
+import { Header } from './Header'
 import './index.css'
+import { Landing } from './Landing'
+import { WalletProvider } from './wallet'
 
-const isGuard = window.location.pathname.startsWith('/guard')
+const path = window.location.pathname
+const search = new URLSearchParams(window.location.search)
 
-function Nav() {
-  return (
-    <nav className="nav" aria-label="Pages">
-      <a href="/" aria-current={!isGuard ? 'page' : undefined}>Fuel</a>
-      <a href="/guard" aria-current={isGuard ? 'page' : undefined}>Guard</a>
-    </nav>
-  )
+// Older funding links point at /?to=0x…; they still open the fuel page.
+function Page() {
+  if (path.startsWith('/fuel') || (path === '/' && search.has('to'))) return <Fuel />
+  if (path.startsWith('/guard')) return <Guard />
+  if (path.startsWith('/dashboard')) return <Dashboard />
+  return <Landing />
 }
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Nav />
-    {isGuard ? <Guard /> : <App />}
+    <WalletProvider>
+      <Header path={path === '/' && search.has('to') ? '/fuel' : path} />
+      <Page />
+    </WalletProvider>
   </StrictMode>,
 )

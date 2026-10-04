@@ -116,7 +116,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       hasPhantom,
       solana,
       connectEvm: async (wallet) => {
-        await attach(wallet, true)
+        if (await attach(wallet, true)) {
+          await switchToBase(wallet.provider).catch(() => {})
+        }
       },
       connectSolana: async () => {
         const phantom = window.phantom?.solana
@@ -147,3 +149,35 @@ export function useWallet(): WalletState {
 }
 
 export const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
+
+export const BASE_CHAIN_ID = 8453
+
+/** Asks the wallet to switch to Base, adding the network first if the wallet doesn't know it. */
+export async function switchToBase(provider: EIP1193Provider) {
+  const chainId = '0x2105'
+  try {
+    await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId }] })
+  } catch (error) {
+    if ((error as { code?: number }).code !== 4902) throw error
+    await provider.request({
+      method: 'wallet_addEthereumChain',
+      params: [
+        {
+          chainId,
+          chainName: 'Base',
+          nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+          rpcUrls: ['https://mainnet.base.org'],
+          blockExplorerUrls: ['https://basescan.org'],
+        },
+      ],
+    })
+  }
+}
+
+/** Opens the connect sheet from anywhere on the page. */
+export function openConnect(tab: 'base' | 'solana' = 'base') {
+  window.dispatchEvent(new CustomEvent('pitstop:connect', { detail: tab }))
+}
+
+/** Phantom also announces an EVM provider; label it so single-wallet users aren't confused. */
+export const walletLabel = (w: EvmWalletInfo) => (w.rdns === 'app.phantom' ? 'Phantom (Base)' : w.name)

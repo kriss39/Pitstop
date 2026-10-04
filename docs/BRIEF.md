@@ -1,6 +1,6 @@
 # Pitstop: Project Brief (2026-10-04)
 
-Status: Day 5 demo runs end to end (2026-10-04): Nansen paid over MPP through the guard until blocked; Telegram alerts live. Day 4 done: auto-refill from the agent's Base home wallet and the MCP server (`fuel_agent`) both fuel the guarded wallet on mainnet. Day 3 guard proven on mainnet: the agent's access key is blocked by the protocol (`SpendingLimitExceeded`) once its daily limit is used. Day 2 deployed: https://fuel.pitstopgas.workers.dev serves the fuel page (Base + Solana), the LI.FI proxy and the D1 agent registry. Solana fuel tested with real funds (2 transfers, ~1 s each). Day 1: first real Base → Tempo fuel (see §13). Day 0: monorepo scaffolded, rules confirmed. Deadline: Colosseum Tempo track, **2026-10-12 23:59 PT** (= 2026-10-13 06:59 UTC).
+Status: Day 6 shipped (2026-10-04): Pit Board redesign (landing, /fuel, /guard, /dashboard, docs), EIP-6963 wallet connect, 0.25% integrator fee, README for judges. Day 5 demo runs end to end: Nansen paid over MPP through the guard until blocked; Telegram alerts live. Day 4 done: auto-refill from the agent's Base home wallet and the MCP server (`fuel_agent`) both fuel the guarded wallet on mainnet. Day 3 guard proven on mainnet: the agent's access key is blocked by the protocol (`SpendingLimitExceeded`) once its daily limit is used. Day 2 deployed: https://fuel.pitstopgas.workers.dev serves the fuel page (Base + Solana), the LI.FI proxy and the D1 agent registry. Solana fuel tested with real funds (2 transfers, ~1 s each). Day 1: first real Base → Tempo fuel (see §13). Day 0: monorepo scaffolded, rules confirmed. Deadline: Colosseum Tempo track, **2026-10-12 23:59 PT** (= 2026-10-13 06:59 UTC).
 Legend: ✓ = verified on 2026-10-04 · ▲ = not verified yet; confirm before relying on it.
 
 ---
@@ -226,3 +226,12 @@ Reports on the Desktop:
 | 2026-10-04 | First fuel: 2 USDC Base → agent `0x0f7b…92fA` on Tempo, signed in Rabby from `apps/web` | DONE via Across in the same block second. Received 1.994511 USDCe (matches quote). Fees $0.0055 + gas $0.0029. Approval was exact; leftover allowance 0. Source tx `0x53d3dda1b3309d2888cea5c352d0ab9f2120556990286b2e1ef11a33f9a9f9a2`, Tempo tx `0x1e7a98d7de4ceacf5657114612531b84e91f216fca40013e95c24288f7497800` |
 
 **Day 1 decisions:** LI.FI REST `/quote` + `/status` instead of `@lifi/sdk` (single-step routes need nothing more). `fuelQuote()` rejects routes that don't end at the agent address on Tempo or don't call the LI.FI Diamond `0x1231…4EaE`. The browser never sees the LI.FI key: the Vite dev server proxies `/lifi` and adds it (the Worker does this in production from Day 2). Web cap: 5 USDC per transfer while testing.
+
+## 14. Day 6 decisions (2026-10-04)
+
+- **Visual direction "Pit Board"**: monochrome base next to Tempo's black/white, one signal colour (pit-lane yellow `#FFD400`, fill only), racing flags as status (green active, yellow near limit, red blocked, black revoked, chequered expired). Fonts: Big Shoulders Display, Archivo, JetBrains Mono.
+- **Routes**: `/` landing (old `/?to=` funding links still open the fuel page), `/fuel`, `/guard`, `/dashboard`, `/#docs`.
+- **Wallet connect**: EIP-6963 discovery + Phantom, no wagmi/RainbowKit. Phantom's EVM entry is labelled "Phantom (Base)"; connecting switches to Base (adds the chain on error 4902).
+- **Fee**: `PITSTOP_FEE = 0.0025` on quotes from the web app; optional (`PITSTOP_FEE`) for agent refills and MCP.
+- **Domain stays `fuel.pitstopgas.workers.dev`**: passkeys are bound to the hostname; moving domains would orphan owner passkeys.
+- **Positioning**: other agent wallets describe limits enforced in their backend; Pitstop shows a limit enforced by the Tempo protocol, live.
