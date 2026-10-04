@@ -552,3 +552,6 @@ img.avatar { object-fit: cover; background: none; border: 1px solid var(--line);
 .by-service .svc img { border-radius: 5px; }
 .by-service .svc-dot { width: 20px; height: 20px; border-radius: 5px; background: var(--bg); border: 1px solid var(--line); display: inline-block; }
 .by-service li { overflow: hidden; }
+.bd-readout { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.bd-readout output { font: 500 15px var(--mono); font-variant-numeric: tabular-nums; }
+.bd-readout output b { color: var(--ink); }

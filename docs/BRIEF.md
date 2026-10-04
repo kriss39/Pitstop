@@ -232,7 +232,7 @@ Reports on the Desktop:
 - **Visual direction "Pit Board"**: monochrome base next to Tempo's black/white, one signal colour (pit-lane yellow `#FFD400`, fill only), racing flags as status (green active, yellow near limit, red blocked, black revoked, chequered expired). Fonts: Big Shoulders Display, Archivo, JetBrains Mono.
 - **Routes**: `/` landing (old `/?to=` funding links still open the fuel page), `/fuel`, `/guard`, `/dashboard`, `/#docs`.
 - **Wallet connect**: EIP-6963 discovery + Phantom, no wagmi/RainbowKit. Phantom's EVM entry is labelled "Phantom (Base)"; connecting switches to Base (adds the chain on error 4902).
-- **Fee**: `PITSTOP_FEE = 0.0025` on quotes from the web app; optional (`PITSTOP_FEE`) for agent refills and MCP.
+- **Fee**: `PITSTOP_FEE = 0.001` (0.1%, lowered from 0.25% on 2026-10-04) on quotes from the web app; optional (`PITSTOP_FEE`) for agent refills and MCP.
 - **Domain stays `fuel.pitstopgas.workers.dev`**: passkeys are bound to the hostname; moving domains would orphan owner passkeys.
 - **Positioning**: other agent wallets describe limits enforced in their backend; Pitstop shows a limit enforced by the Tempo protocol, live.
 

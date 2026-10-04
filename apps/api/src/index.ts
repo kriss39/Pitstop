@@ -29,6 +29,54 @@ app.get('/api/balance/:address', async (c) => {
   })
 })
 
+// Solana balances for the fuel page. Solana's public RPC refuses browsers and Cloudflare's IPs
+// for token-account reads, so the Worker asks Jupiter's free balance API first and the RPC second,
+// and returns only the two numbers the page needs.
+const SOLANA_RPC = 'https://api.mainnet-beta.solana.com'
+const SOLANA_USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+
+async function jupiterBalances(owner: string) {
+  const res = await fetch(`https://lite-api.jup.ag/ultra/v1/balances/${owner}`)
+  if (!res.ok) throw new Error(`Jupiter ${res.status}`)
+  const body = (await res.json()) as Record<string, { amount: string } | undefined>
+  return { sol: body.SOL?.amount ?? '0', usdc: body[SOLANA_USDC]?.amount ?? '0' }
+}
+
+async function rpcBalances(owner: string) {
+  const rpc = async <T>(method: string, params: unknown[]) => {
+    const res = await fetch(SOLANA_RPC, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    })
+    const body = (await res.json()) as { result?: T; error?: { message: string } }
+    if (!body.result) throw new Error(body.error?.message ?? `Solana RPC ${res.status}`)
+    return body.result
+  }
+  const [sol, usdc] = await Promise.all([
+    rpc<{ value: number }>('getBalance', [owner]),
+    // A wallet can hold USDC in more than one token account; add them up.
+    rpc<{ value: { account: { data: { parsed: { info: { tokenAmount: { amount: string } } } } } }[] }>('getTokenAccountsByOwner', [
+      owner,
+      { mint: SOLANA_USDC },
+      { encoding: 'jsonParsed' },
+    ]),
+  ])
+  const usdcRaw = usdc.value.reduce((sum, a) => sum + BigInt(a.account.data.parsed.info.tokenAmount.amount), 0n)
+  return { sol: String(sol.value), usdc: usdcRaw.toString() }
+}
+
+app.get('/api/solana/balance/:owner', async (c) => {
+  const owner = c.req.param('owner')
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(owner)) return c.json({ error: 'invalid address' }, 400)
+  try {
+    const b = await jupiterBalances(owner).catch(() => rpcBalances(owner))
+    return c.json({ owner, ...b }, 200, { 'cache-control': 'no-store' })
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'Solana balance unavailable' }, 502)
+  }
+})
+
 // LI.FI proxy: the browser never sees the API key. Only the read endpoints the
 // fuel page needs are forwarded, so the key can't be used for anything else.
 const LIFI_PATHS = new Set(['quote', 'status'])

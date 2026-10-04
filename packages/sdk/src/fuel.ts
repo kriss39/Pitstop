@@ -15,8 +15,8 @@ import { TEMPO_TOKENS, type TempoTokenSymbol } from './tokens.js'
 
 export const LIFI_API_URL = 'https://li.quest/v1'
 
-/** Pitstop's integrator fee on fuel routes (0.25%), collected by LI.FI to the fee wallet set in the LI.FI portal. */
-export const PITSTOP_FEE = 0.0025
+/** Pitstop's integrator fee on fuel routes (0.1%), collected by LI.FI to the fee wallet set in the LI.FI portal. */
+export const PITSTOP_FEE = 0.001
 
 /** LI.FI Diamond contract. Same address on most EVM chains LI.FI supports. */
 export const LIFI_DIAMOND: Address = '0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE'

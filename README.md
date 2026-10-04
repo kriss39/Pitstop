@@ -113,7 +113,7 @@ There is deliberately no tool to change limits: the agent can't loosen its own l
 
 ## Business model
 
-A 0.25% LI.FI integrator fee on every fuel route made through Pitstop, shown in each quote. Next: fleet dashboards and alerting for teams running many agents, and a hosted refill service for agents that can't keep a home wallet.
+A 0.1% LI.FI integrator fee on every fuel route made through Pitstop, shown in each quote. Next: fleet dashboards and alerting for teams running many agents, and a hosted refill service for agents that can't keep a home wallet.
 
 ## Built with
 

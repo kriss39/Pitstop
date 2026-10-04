@@ -28,6 +28,7 @@ import {
 import { arbitrum, arc, avalanche, base, mainnet, optimism, polygon, type Chain } from 'viem/chains'
 import { Account } from 'viem/tempo'
 import { savedOwner, short, usd, useAgent } from './ui'
+import { solanaBalances } from './solana'
 import { openConnect, switchChain, useWallet } from './wallet'
 
 /** Smallest transfer the web app sends, in dollars. Below it, fixed bridge and gas costs eat too much of the amount. */
@@ -137,21 +138,34 @@ export function Fuel() {
   const sender = isEvm ? w.evm?.account : w.solana?.address
   const onChain = isEvm && w.evm?.chainId === src.chainId
   const ready = isEvm ? !!w.evm && onChain : !!w.solana
-  const enoughFunds = !isEvm || (srcBalance != null && srcBalance >= fromAmount)
+  // Solana balances come from the Worker; if that read fails, the wallet still checks funds when signing.
+  const enoughFunds = isEvm ? srcBalance != null && srcBalance >= fromAmount : srcBalance == null || srcBalance >= fromAmount
   const routeCost = quote?.fromAmountUSD && quote.toAmountUSD ? 1 - quote.toAmountUSD / quote.fromAmountUSD : undefined
   const underMin = useNative && quote?.fromAmountUSD != null && quote.fromAmountUSD < MIN_USD * 0.99
   const tooCostly = routeCost != null && routeCost > COST_BLOCK
 
   useEffect(() => {
     setSrcBalance(undefined)
-    if (!w.evm || !src.chain) return
+    // Solana: the Worker reads USDC and SOL for the connected wallet.
+    if (!src.chain) {
+      if (!w.solana) return
+      let live = true
+      solanaBalances(w.solana.address).then(
+        (b) => live && setSrcBalance(useNative ? b.sol : b.usdc),
+        () => live && setSrcBalance(undefined),
+      )
+      return () => {
+        live = false
+      }
+    }
+    if (!w.evm) return
     const c = clientFor(src.chain)
     const read =
       useNative
         ? c.getBalance({ address: w.evm.account })
         : c.readContract({ address: src.usdc as Address, abi: erc20Abi, functionName: 'balanceOf', args: [w.evm.account] })
     read.then(setSrcBalance, () => setSrcBalance(undefined))
-  }, [w.evm?.account, source, useNative, finished])
+  }, [w.evm?.account, w.solana?.address, source, useNative, finished])
 
   // Picking an EVM source asks the connected wallet to switch to it.
   useEffect(() => {
@@ -287,7 +301,7 @@ export function Fuel() {
 
   const [editAgent, setEditAgent] = useState(!agentOk)
   const balanceText =
-    isEvm && srcBalance != null ? `${Number(formatUnits(srcBalance, pay.decimals)).toFixed(pay.decimals > 6 ? 5 : 2)} ${pay.symbol}` : undefined
+    srcBalance != null ? `${Number(formatUnits(srcBalance, pay.decimals)).toFixed(pay.decimals > 6 ? 5 : 2)} ${pay.symbol}` : undefined
   // Gas tokens keep 5% back so the wallet can still pay the network fee.
   const spendable = srcBalance != null ? (useNative ? (srcBalance * 95n) / 100n : srcBalance) : undefined
   /** Token amount as input text, rounded down so it never exceeds the balance. */
@@ -532,6 +546,14 @@ function Breakdown({
 }) {
   const sliderValue = Math.min(SLIDER_MAX, Math.max(MIN_USD, amountUsd ?? MIN_USD))
   const walletPermille = wallet ? Number((wallet.amount > wallet.max ? wallet.max : wallet.amount) * 1000n / wallet.max) : 0
+  // What the slider position is worth: dollars for USDC; tokens plus their dollar value (at the quote's price) for gas tokens.
+  const slid = wallet ? (wallet.amount > wallet.max ? wallet.max : wallet.amount) : 0n
+  const price = quote?.fromAmountUSD ? quote.fromAmountUSD / Number(formatUnits(quote.fromAmount, quote.fromToken.decimals)) : undefined
+  const readout = !wallet
+    ? ''
+    : native
+      ? `${tokenAmt(slid, wallet.token)}${price ? ` ≈ ${dollars(price * Number(formatUnits(slid, wallet.token.decimals)))}` : ''}`
+      : `$${grouped(Number(formatUnits(slid, wallet.token.decimals)), 2)}`
 
   return (
     <section id="breakdown" className={`breakdown rise${loading ? ' stale' : ''}`} aria-label="Where your money goes" aria-busy={loading}>
@@ -542,9 +564,14 @@ function Breakdown({
 
       {wallet ? (
         <div className="bd-play">
-          <label htmlFor="bd-range" className="small muted">
-            Your balance: <b>{tokenAmt(wallet.max, wallet.token)}</b> on {chain}
-          </label>
+          <div className="bd-readout">
+            <label htmlFor="bd-range" className="small muted">
+              Your balance: <b>{tokenAmt(wallet.max, wallet.token)}</b> on {chain}
+            </label>
+            <output htmlFor="bd-range">
+              <b>{Math.round(walletPermille / 10)}%</b> · {readout}
+            </output>
+          </div>
           <input
             id="bd-range"
             type="range"

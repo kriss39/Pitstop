@@ -3,6 +3,7 @@ import type { Wallet, WalletAccount } from '@wallet-standard/base'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { numberToHex, type Address, type Chain, type EIP1193Provider } from 'viem'
 import { base } from 'viem/chains'
+import { base58 } from './solana'
 
 /** An injected EVM wallet announced through EIP-6963 (one entry per extension). */
 export type EvmWalletInfo = { uuid: string; name: string; icon: string; rdns: string; provider: EIP1193Provider }
@@ -64,30 +65,6 @@ function recall(key: string) {
   }
 }
 
-const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-/** Base58 for Solana signatures (what explorers and LI.FI expect). */
-function base58(bytes: Uint8Array) {
-  const digits: number[] = []
-  for (const byte of bytes) {
-    let carry = byte
-    for (let i = 0; i < digits.length; i++) {
-      carry += digits[i]! << 8
-      digits[i] = carry % 58
-      carry = (carry / 58) | 0
-    }
-    while (carry) {
-      digits.push(carry % 58)
-      carry = (carry / 58) | 0
-    }
-  }
-  let out = ''
-  for (const byte of bytes) {
-    if (byte !== 0) break
-    out += '1'
-  }
-  for (let i = digits.length - 1; i >= 0; i--) out += B58[digits[i]!]
-  return out
-}
 
 /** Discovers injected wallets (EIP-6963 for EVM, Wallet Standard for Solana) and tracks the connected accounts. */
 export function WalletProvider({ children }: { children: ReactNode }) {

@@ -57,7 +57,7 @@ const BUILT_ON = [
     name: 'LI.FI',
     role: 'Brings the fuel in',
     line: 'Routes USDC and gas tokens from all the major chains into Tempo through Across and Relay. More are on the way.',
-    stats: [['~1–2 s', 'to Tempo'], ['Any', 'source chain'], ['0.25%', 'Pitstop fee']],
+    stats: [['~1–2 s', 'to Tempo'], ['Any', 'source chain'], ['0.1%', 'Pitstop fee']],
     href: 'https://li.fi',
   },
   {

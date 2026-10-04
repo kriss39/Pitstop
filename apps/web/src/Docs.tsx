@@ -188,7 +188,7 @@ export function Docs() {
               <li>Pay with USDC or the gas token (ETH, POL, AVAX, SOL). LI.FI swaps it on the way. On Arc, USDC is the gas token.</li>
               <li>The web app sends at least $5 per transfer: below that, the fixed bridge and gas costs take too big a share. Approvals are for the exact amount.</li>
               <li>If a route would lose more than 10% of the value, Pitstop won’t send it; above 3% it warns you.</li>
-              <li>Fees: a few cents for the bridge, plus a 0.25% Pitstop fee. Every quote shows the total.</li>
+              <li>Fees: a 0.1% Pitstop fee, LI.FI’s 0.25% and a few cents for the bridge and gas. Every quote itemizes them before you sign.</li>
               <li>Before you sign, Pitstop checks that the route ends at the agent’s address on Tempo and calls the official LI.FI contract.</li>
             </ul>
             <p><b>Funding links.</b> Share a link that opens Fuel with the agent already filled in:</p>
@@ -321,7 +321,7 @@ export function Docs() {
             <div className="faq">
               {[
                 ['Does Pitstop hold my money?', 'No. Funds move straight from your wallet to the agent’s wallet.'],
-                ['What does it cost?', 'A few cents in bridge fees plus 0.25%. Each quote shows the total before you sign.'],
+                ['What does it cost?', '0.1% for Pitstop, 0.25% for LI.FI, and a few cents for the bridge and gas. Each quote itemizes them before you sign.'],
                 ['What if I lose my passkey?', 'You can’t change the limit any more, but the key still expires. Keep balances small.'],
                 ['Can I use it without the CLI?', 'Yes. Fuel and Guard work in the browser; the CLI and MCP are for running the agent.'],
                 ['Which stablecoin should I use?', 'USDC.e works with most MPP services today, and it’s the default. The MPP docs now recommend OUSD; pick it if your services charge in OUSD.'],
