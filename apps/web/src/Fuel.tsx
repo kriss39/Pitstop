@@ -25,7 +25,7 @@ import {
   type PublicClient,
 } from 'viem'
 import { arbitrum, arc, avalanche, base, mainnet, optimism, polygon, type Chain } from 'viem/chains'
-import { PanelHead, short, TokenPicker, usd, useAgent } from './ui'
+import { short, usd, useAgent } from './ui'
 import { openConnect, switchChain, useWallet } from './wallet'
 
 /** Per-transfer cap on the web app, in dollars. */
@@ -78,6 +78,8 @@ type Step = { label: string; state: 'todo' | 'active' | 'done' | 'error'; link?:
 const params = new URLSearchParams(window.location.search)
 const fromBase64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0))
 const secs = (ms: number) => `${(ms / 1000).toFixed(1)} s`
+/** A number with thousands separators and a fixed number of decimals. */
+const grouped = (n: number, dp: number) => n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })
 
 export function Fuel() {
   const w = useWallet()
@@ -94,7 +96,6 @@ export function Fuel() {
   const [payNative, setPayNative] = useState(params.get('pay') === 'native')
   const [srcBalance, setSrcBalance] = useState<bigint>()
   const [quote, setQuote] = useState<FuelQuote>()
-  const [quotedAt, setQuotedAt] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
   const [steps, setSteps] = useState<Step[]>([])
@@ -137,8 +138,6 @@ export function Fuel() {
     if (w.evm && src.chain && w.evm.chainId !== src.chainId) void switchChain(w.evm.wallet.provider, src.chain).catch(() => {})
   }, [source, !!w.evm])
 
-  // A quote is only valid for the inputs it was made for.
-  useEffect(() => setQuote(undefined), [agent, amount, source, sender, receive, useNative])
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true)
@@ -153,31 +152,52 @@ export function Fuel() {
     }
   }
 
-  const newQuote = async () => {
-    const q = await fuelQuote({
+  /** Quotes for `from` (the connected wallet, or the agent address as a stand-in for a live preview). */
+  const newQuote = async (from: string) =>
+    fuelQuote({
       fromChain: src.chainId,
       fromToken: pay.address,
       fromAmount,
-      fromAddress: sender!,
+      fromAddress: from,
       toAddress: agent as Address,
       toToken: receive,
       integrator: __LIFI_INTEGRATOR__,
       fee: PITSTOP_FEE,
       baseUrl: LIFI_PROXY,
     })
-    setQuote(q)
-    setQuotedAt(Date.now())
-    return q
-  }
+
+  // Live quote as you type. EVM previews can use the agent's address as a stand-in sender;
+  // Solana previews wait for a connected wallet.
+  const previewFrom = sender ?? (isEvm && agentOk ? agent : undefined)
+  const [quoting, setQuoting] = useState(false)
+  const [quoteError, setQuoteError] = useState<string>()
+  useEffect(() => {
+    setQuote(undefined)
+    setQuoteError(undefined)
+    if (!agentOk || !amountOk || !previewFrom || busy) return
+    let live = true
+    setQuoting(true)
+    const t = setTimeout(() => {
+      newQuote(previewFrom).then(
+        (q) => live && setQuote(q),
+        (e) => live && setQuoteError(e instanceof Error && /no available quotes|not found/i.test(e.message) ? 'No route for this amount. Try more, or another token.' : 'Couldn’t get a quote. Try again.'),
+      ).finally(() => live && setQuoting(false))
+    }, 600)
+    return () => {
+      live = false
+      clearTimeout(t)
+    }
+  }, [agent, amount, source, previewFrom, receive, useNative])
 
   const fuel = () =>
     run(async () => {
       setFinished(undefined)
-      const q = Date.now() - quotedAt > src.ttlMs ? await newQuote() : quote!
-      // Re-check the (possibly refreshed) quote before anything is signed.
+      // Always sign a fresh quote for the real sender, and re-check it first.
+      const q = await newQuote(sender!)
+      setQuote(q)
       if (q.fromAmountUSD != null && q.fromAmountUSD > MAX_USD * 1.01) throw new Error(`Over the $${MAX_USD} per-transfer cap.`)
       if (q.fromAmountUSD && q.toAmountUSD && 1 - q.toAmountUSD / q.fromAmountUSD > COST_BLOCK)
-        throw new Error('This route got too expensive. Get a new quote or try another chain.')
+        throw new Error('This route got too expensive. Try another chain or token.')
       const tx = q.transactionRequest
       const t0 = Date.now()
       const list: Step[] =
@@ -241,138 +261,158 @@ export function Fuel() {
       await target.refresh()
     })
 
+  const [editAgent, setEditAgent] = useState(!agentOk)
+  const balanceText =
+    isEvm && srcBalance != null ? `${Number(formatUnits(srcBalance, pay.decimals)).toFixed(pay.decimals > 6 ? 5 : 2)} ${pay.symbol}` : undefined
+  const fmtPay = (v: bigint) => Number(formatUnits(v, pay.decimals)).toFixed(pay.decimals > 6 ? 5 : 2)
+
+  // One button, whose job depends on what's missing. Problems with the transfer itself come before the wallet.
+  const cta = !agentOk
+    ? { label: 'Enter the agent’s address', disabled: true }
+    : !amountOk
+      ? { label: useNative || amountNum <= MAX_USD ? 'Enter an amount' : `Over the $${MAX_USD} cap`, disabled: true }
+      : overCap
+        ? { label: `Over the $${MAX_USD} cap`, disabled: true }
+        : tooCostly
+          ? { label: 'Route too expensive', disabled: true }
+          : !sender
+            ? { label: isEvm ? 'Connect wallet' : 'Connect a Solana wallet', onClick: () => openConnect(isEvm ? 'base' : 'solana') }
+            : isEvm && !onChain
+              ? { label: `Switch to ${src.label}`, onClick: () => run(() => switchChain(w.evm!.wallet.provider, src.chain!)) }
+              : !enoughFunds
+                ? { label: `Not enough ${pay.symbol} on ${src.label}`, disabled: true }
+                : { label: quoting || !quote ? 'Getting the best route…' : 'Fuel agent', onClick: fuel, disabled: quoting || !quote }
+
   return (
-    <main className="page">
-      <header className="rise" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <p className="eyebrow">01 · Fuel</p>
-        <h1 className="title">Refuel an agent on Tempo</h1>
-        <p className="lede">
-          Send USDC or the chain’s own token from any of eight chains. The agent receives USDC.e, PathUSD, USDT0 or OUSD on Tempo in seconds. You sign in your own wallet; Pitstop never holds funds.
-        </p>
+    <main className="page fuel-page">
+      <header className="rise fuel-head">
+        <h1 className="title">Refuel an agent</h1>
+        <p className="lede">Any of eight chains in, stablecoins out on Tempo, in seconds.</p>
       </header>
 
-      <section className="panel">
-        <PanelHead num="A" title="Agent" />
-        <label className="field">
-          <span>Agent wallet on Tempo</span>
-          <input id="agent" value={agent} onChange={(e) => setAgent(e.target.value.trim())} spellCheck={false} placeholder="0x…" />
-          {agentOk ? (
-            <small className="muted">Tempo balance ${target.balance != null ? usd(target.balance) : '…'} · {short(agent)}</small>
-          ) : agent ? (
-            <small className="note bad">That isn’t a valid 0x address. Check it before sending; fuel can’t be recalled.</small>
-          ) : (
-            <small className="muted">Paste the agent’s wallet address. Create one on the Guard page if you don’t have it yet.</small>
-          )}
-        </label>
-      </section>
-
-      <section className="panel">
-        <PanelHead num="B" title="Pay from" />
-        <div className="seg chains" role="radiogroup" aria-label="Source chain">
-          {SOURCE_KEYS.map((key) => (
-            <button key={key} role="radio" aria-checked={source === key} onClick={() => setSource(key)} disabled={busy}>
-              {SOURCES[key].label}
-            </button>
-          ))}
-        </div>
-        {src.native && (
-          <div className="field">
-            <span>Pay with</span>
-            <div className="seg" role="radiogroup" aria-label="Token to pay with">
-              <button role="radio" aria-checked={!useNative} onClick={() => setPayNative(false)} disabled={busy}>USDC</button>
-              <button role="radio" aria-checked={useNative} onClick={() => setPayNative(true)} disabled={busy}>{src.native.symbol}</button>
+      <section className="swap rise d1" aria-label="Fuel">
+        <div className="swap-box">
+          <div className="swap-top">
+            <span className="swap-label">You pay</span>
+            {balanceText && (
+              <button className="link-btn" onClick={() => srcBalance != null && setAmount(fmtPay(srcBalance))} title="Use full balance">
+                Balance {balanceText}
+              </button>
+            )}
+          </div>
+          <div className="swap-row">
+            <input
+              id="amount"
+              className="swap-amount"
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(',', '.'))}
+              placeholder="0"
+              aria-label={`Amount in ${pay.symbol}`}
+            />
+            <div className="swap-pickers">
+              <label className="chip-select">
+                <span className="sr-only">Chain</span>
+                <select value={source} onChange={(e) => setSource(e.target.value as Source)} disabled={busy}>
+                  {SOURCE_KEYS.map((k) => (
+                    <option key={k} value={k}>{SOURCES[k].label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="chip-select">
+                <span className="sr-only">Token</span>
+                <select value={useNative ? 'native' : 'usdc'} onChange={(e) => setPayNative(e.target.value === 'native')} disabled={busy || !src.native}>
+                  <option value="usdc">USDC</option>
+                  {src.native && <option value="native">{src.native.symbol}</option>}
+                </select>
+              </label>
             </div>
-            {useNative && <small className="muted">LI.FI swaps {src.native.symbol} into the stablecoin the agent receives, on the way to Tempo.</small>}
+          </div>
+          <span className="swap-sub">
+            {quote?.fromAmountUSD != null ? `≈ $${grouped(quote.fromAmountUSD, 2)}` : useNative ? `Worth up to $${MAX_USD}` : `Up to $${MAX_USD} per transfer`}
+          </span>
+        </div>
+
+        <div className="swap-arrow" aria-hidden>
+          <span>↓</span>
+        </div>
+
+        <div className="swap-box">
+          <div className="swap-top">
+            <span className="swap-label">Agent receives on Tempo</span>
+            <label className="chip-select small">
+              <span className="sr-only">Token received</span>
+              <select value={receive} onChange={(e) => setReceive(e.target.value as FuelTokenSymbol)} disabled={busy}>
+                {FUEL_TOKENS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className={`swap-amount out${quoting ? ' loading' : ''}`}>{quote ? grouped(Number(formatUnits(quote.toAmount, 6)), 4) : '0.00'}</div>
+          {editAgent || !agentOk ? (
+            <input
+              id="agent"
+              className="swap-agent"
+              value={agent}
+              onChange={(e) => setAgent(e.target.value.trim())}
+              onBlur={() => isAddress(agent) && setEditAgent(false)}
+              spellCheck={false}
+              placeholder="Agent wallet on Tempo (0x…)"
+              aria-label="Agent wallet on Tempo"
+            />
+          ) : (
+            <button className="link-btn agent-chip" onClick={() => setEditAgent(true)} title="Change the agent wallet">
+              to <code>{short(agent)}</code>
+              {target.balance != null && <span className="muted"> · has ${usd(target.balance)}</span>} · change
+            </button>
+          )}
+          {agent !== '' && !agentOk && <small className="note bad">That isn’t a valid 0x address.</small>}
+        </div>
+
+        {(quote || quoteError) && (
+          <div className="route">
+            {quoteError ? (
+              <span className="bad">{quoteError}</span>
+            ) : (
+              quote && (
+                <>
+                  <span>~{quote.durationSeconds} s</span>
+                  <span>via {quote.tool}</span>
+                  <span>fees ${(quote.feesUsd + quote.gasUsd).toFixed(3)}</span>
+                  <span className={routeCost != null && routeCost > COST_WARN ? 'warn-text' : undefined}>
+                    cost {routeCost != null ? `${(routeCost * 100).toFixed(1)}%` : '–'}
+                  </span>
+                </>
+              )
+            )}
           </div>
         )}
-        <label className="field">
-          <span>Amount ({pay.symbol}{useNative ? `, worth up to $${MAX_USD}` : `, up to ${MAX_USD}`} per transfer)</span>
-          <input id="amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(',', '.'))} />
-          {!amountOk && amount !== '' && <small className="note bad">Enter an amount{useNative ? ' above 0' : ` between 0 and ${MAX_USD}`}.</small>}
-        </label>
-        <div className="field">
-          <span>Agent receives on Tempo</span>
-          <TokenPicker value={receive} onChange={setReceive} disabled={busy} label="Token received on Tempo" />
-          <small className="muted">
-            {receive === 'USDCe' ? 'USDC.e: the default for Pitstop guards and most MPP services.' : receive === 'OUSD' ? 'OpenUSD: the token the MPP docs recommend.' : `Use ${receive} if the services your agent pays charge in it.`}{' '}
-            A guarded key only spends the token it was authorized for.
-          </small>
-        </div>
-        <div className="row">
-          {!sender ? (
-            <button className="primary" onClick={() => openConnect(isEvm ? 'base' : 'solana')}>
-              Connect {isEvm ? 'an EVM wallet' : 'a Solana wallet'}
-            </button>
-          ) : isEvm && !onChain ? (
-            <button className="primary" onClick={() => run(() => switchChain(w.evm!.wallet.provider, src.chain!))} disabled={busy}>
-              Switch to {src.label}
-            </button>
-          ) : (
-            <button className="primary" onClick={() => run(newQuote)} disabled={busy || !agentOk || !amountOk || !ready}>
-              {quote ? 'Refresh quote' : 'Get quote'}
-            </button>
-          )}
-          {sender && (
-            <span className="small muted">
-              From {short(sender)} on {src.label}
-              {isEvm && srcBalance != null && ` · ${Number(formatUnits(srcBalance, pay.decimals)).toFixed(pay.decimals > 6 ? 5 : 2)} ${pay.symbol}`}
-            </span>
-          )}
-        </div>
-        {isEvm && ready && srcBalance != null && !enoughFunds && (
-          <p className="note bad">This wallet has less {pay.symbol} on {src.label} than the amount.</p>
+        {overCap && (
+          <p className="note bad">
+            That’s about ${grouped(quote!.fromAmountUSD!, 2)}. The web app sends up to ${MAX_USD} per transfer.
+          </p>
         )}
-      </section>
+        {tooCostly && <p className="note bad">This route would lose {(routeCost! * 100).toFixed(0)}% of the value, so Pitstop won’t send it.</p>}
+        {!tooCostly && routeCost != null && routeCost > COST_WARN && <p className="note warn">This route costs {(routeCost * 100).toFixed(1)}%. USDC is usually cheaper.</p>}
 
-      {quote && (
-        <section className="panel quote">
-          <PanelHead num="C" title="Quote" />
-          <div>
-            <p className="eyebrow">Agent receives</p>
-            <p className="big">{usd(quote.toAmount, 4)} {quote.toToken.symbol}</p>
-          </div>
-          <dl>
-            <div>
-              <dt>You send</dt>
-              <dd>
-                {Number(formatUnits(quote.fromAmount, pay.decimals)).toFixed(pay.decimals > 6 ? 5 : 2)} {pay.symbol} · {src.label}
-                {quote.fromAmountUSD != null && <span className="muted"> (${quote.fromAmountUSD.toFixed(2)})</span>}
-              </dd>
-            </div>
-            <div><dt>Arrives in</dt><dd>~{quote.durationSeconds} s via {quote.tool}</dd></div>
-            <div><dt>Minimum</dt><dd>{usd(quote.toAmountMin, 4)} {quote.toToken.symbol}</dd></div>
-            <div><dt>Route cost</dt><dd>{routeCost != null ? `${(routeCost * 100).toFixed(1)}% of value` : '–'}</dd></div>
-            <div><dt>Fees + gas</dt><dd>${(quote.feesUsd + quote.gasUsd).toFixed(4)} · incl. {PITSTOP_FEE * 100}% Pitstop</dd></div>
-            <div><dt>To</dt><dd className="mono">{short(quote.toAddress)} · Tempo</dd></div>
-            <div><dt>Contract</dt><dd className="mono">LI.FI Diamond (checked)</dd></div>
-          </dl>
-          {overCap && <p className="note bad">That’s worth ${quote.fromAmountUSD!.toFixed(2)}, over the ${MAX_USD} per-transfer cap. Lower the amount.</p>}
-          {tooCostly && (
-            <p className="note bad">
-              This route would lose {(routeCost! * 100).toFixed(0)}% of the value, so Pitstop won’t send it. Try USDC, another chain, or a larger amount.
-            </p>
-          )}
-          {!tooCostly && routeCost != null && routeCost > COST_WARN && (
-            <p className="note warn">This route costs {(routeCost * 100).toFixed(1)}% of the value. USDC from another chain is usually cheaper.</p>
-          )}
-          <div className="row">
-            <button className="primary" onClick={fuel} disabled={busy || !enoughFunds || overCap || tooCostly}>
-              Fuel agent with {amount} {pay.symbol}
-            </button>
-          </div>
-        </section>
-      )}
+        <button className="signal-btn swap-cta" onClick={cta.onClick} disabled={busy || cta.disabled}>
+          {busy && steps.length ? 'Fueling…' : cta.label}
+        </button>
+        <p className="swap-foot">
+          Includes a {PITSTOP_FEE * 100}% Pitstop fee. You sign in your own wallet; approvals are for the exact amount; the route is checked before you sign.
+        </p>
+      </section>
 
       {steps.length > 0 && (
         <section className="panel">
-          <PanelHead num="D" title="Pit lane" />
           <ol className="steps">
-            {steps.map((s) => (
-              <li key={s.label} className={s.state}>
+            {steps.map((st) => (
+              <li key={st.label} className={st.state}>
                 <span className="dot" aria-hidden />
-                <span>{s.label}</span>
-                {s.link && <a href={s.link.href} target="_blank" rel="noreferrer">{s.link.text}</a>}
-                {s.t != null && <span className="t">{secs(s.t)}</span>}
+                <span>{st.label}</span>
+                {st.link && <a href={st.link.href} target="_blank" rel="noreferrer">{st.link.text}</a>}
+                {st.t != null && <span className="t">{secs(st.t)}</span>}
               </li>
             ))}
           </ol>
@@ -380,16 +420,14 @@ export function Fuel() {
             <>
               <div className="chequer" aria-hidden />
               <p style={{ font: '800 28px/1 var(--display)', textTransform: 'uppercase' }}>Fuelled in {secs(finished)}</p>
+              <p className="small muted">
+                Watch this agent on the <a href={`/dashboard?wallet=${agent}`}>dashboard</a>.
+              </p>
             </>
           )}
         </section>
       )}
 
-      {finished != null && (
-        <p className="small muted">
-          Watch this agent’s spending on the <a href={`/dashboard?wallet=${agent}`}>dashboard</a>.
-        </p>
-      )}
       {error && <p className="note bad" role="alert">{error}</p>}
     </main>
   )
