@@ -262,6 +262,14 @@ export async function fuelQuote(params: FuelQuoteParameters): Promise<FuelQuote>
     throw new LifiError(`Route delivers ${q.action.toToken.symbol}, not the requested token`)
   if (q.action.fromChainId !== params.fromChain)
     throw new LifiError(`Route starts on chain ${q.action.fromChainId}, expected ${params.fromChain}`)
+  // What leaves the sender's wallet must be exactly what they asked to send.
+  if (BigInt(q.action.fromAmount) !== params.fromAmount)
+    throw new LifiError(`Route sends ${q.action.fromAmount}, expected ${params.fromAmount}`)
+  const sameToken =
+    params.fromChain === SOLANA_CHAIN_ID
+      ? q.action.fromToken.address === params.fromToken
+      : q.action.fromToken.address.toLowerCase() === params.fromToken.toLowerCase()
+  if (!sameToken) throw new LifiError(`Route spends ${q.action.fromToken.symbol}, not the requested token`)
 
   let transactionRequest: FuelQuote['transactionRequest']
   if (params.fromChain === SOLANA_CHAIN_ID) {
@@ -271,6 +279,9 @@ export async function fuelQuote(params: FuelQuoteParameters): Promise<FuelQuote>
     if (tx.chainId !== params.fromChain) throw new LifiError(`Transaction is for chain ${tx.chainId}, expected ${params.fromChain}`)
     if (!tx.to || !isAddressEqual(tx.to as Address, lifiDiamond(params.fromChain)))
       throw new LifiError(`Transaction targets ${tx.to}, not the LI.FI Diamond`)
+    // The token approval (if any) may only go to the same Diamond.
+    if (q.estimate.approvalAddress && !isAddressEqual(q.estimate.approvalAddress as Address, lifiDiamond(params.fromChain)))
+      throw new LifiError(`Approval goes to ${q.estimate.approvalAddress}, not the LI.FI Diamond`)
     transactionRequest = {
       kind: 'evm',
       to: getAddress(tx.to),

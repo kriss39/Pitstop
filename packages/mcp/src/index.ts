@@ -6,6 +6,7 @@ import {
   getAgentKeyStatus,
   getBalance,
   listMppServices,
+  PITSTOP_FEE,
   refillIfLow,
   FUEL_TOKENS,
   SOURCE_TOKENS,
@@ -34,7 +35,8 @@ const GUARD_URL = process.env.PITSTOP_URL ?? 'https://fuel.pitstopgas.workers.de
 const lifi = {
   apiKey: process.env.LIFI_API_KEY,
   integrator: process.env.LIFI_INTEGRATOR ?? 'pitstop',
-  fee: process.env.PITSTOP_FEE ? Number(process.env.PITSTOP_FEE) : undefined,
+  // Pitstop's fee applies to agent refuels too; PITSTOP_FEE=0 turns it off.
+  fee: process.env.PITSTOP_FEE != null ? Number(process.env.PITSTOP_FEE) : PITSTOP_FEE,
 }
 
 const usd = (v: bigint) => formatUnits(v, TIP20_DECIMALS)

@@ -1,4 +1,4 @@
-import { FUEL_TOKENS, TEMPO_TOKENS, TIP20_DECIMALS, type FuelTokenSymbol, type RefillConfig } from '@pitstop/sdk'
+import { FUEL_TOKENS, PITSTOP_FEE, TEMPO_TOKENS, TIP20_DECIMALS, type FuelTokenSymbol, type RefillConfig } from '@pitstop/sdk'
 import { keystore } from '@pitstop/sdk/node'
 import { resolve } from 'node:path'
 import { parseUnits } from 'viem'
@@ -42,6 +42,7 @@ export function refillConfig(): RefillConfig {
     maxPerDay: usd('REFILL_MAX_PER_DAY', '6'),
     apiKey: process.env.LIFI_API_KEY,
     integrator: process.env.LIFI_INTEGRATOR,
-    fee: process.env.PITSTOP_FEE ? Number(process.env.PITSTOP_FEE) : undefined,
+    // Pitstop's fee applies to refills too; PITSTOP_FEE=0 turns it off.
+    fee: process.env.PITSTOP_FEE != null ? Number(process.env.PITSTOP_FEE) : PITSTOP_FEE,
   }
 }

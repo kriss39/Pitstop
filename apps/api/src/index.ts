@@ -1,4 +1,4 @@
-import { getBalance, LIFI_API_URL, TEMPO_CHAIN_ID, totalUsd } from '@pitstop/sdk'
+import { getBalance, LIFI_API_URL, PITSTOP_FEE, TEMPO_CHAIN_ID, totalUsd } from '@pitstop/sdk'
 import { Hono } from 'hono'
 import { checkAgents, handleTelegramUpdate } from './alerts.js'
 import { getStats } from './stats.js'
@@ -37,7 +37,7 @@ const SOLANA_RPC = 'https://api.mainnet-beta.solana.com'
 const SOLANA_USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 
 async function jupiterBalances(owner: string) {
-  const res = await fetch(`https://lite-api.jup.ag/ultra/v1/balances/${owner}`)
+  const res = await fetch(`https://lite-api.jup.ag/ultra/v1/balances/${owner}`, { signal: AbortSignal.timeout(5_000) })
   if (!res.ok) throw new Error(`Jupiter ${res.status}`)
   const body = (await res.json()) as Record<string, { amount: string } | undefined>
   return { sol: body.SOL?.amount ?? '0', usdc: body[SOLANA_USDC]?.amount ?? '0' }
@@ -47,6 +47,7 @@ async function rpcBalances(owner: string) {
   const rpc = async <T>(method: string, params: unknown[]) => {
     const res = await fetch(SOLANA_RPC, {
       method: 'POST',
+      signal: AbortSignal.timeout(5_000),
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
     })
@@ -85,6 +86,11 @@ app.get('/lifi/v1/:endpoint', async (c) => {
   const endpoint = c.req.param('endpoint')
   if (!LIFI_PATHS.has(endpoint)) return c.json({ message: 'Not found' }, 404)
   const url = new URL(c.req.url)
+  // Quotes made with our key are always Pitstop's, at Pitstop's fee, whatever the caller asked for.
+  if (endpoint === 'quote') {
+    url.searchParams.set('integrator', 'pitstop')
+    url.searchParams.set('fee', String(PITSTOP_FEE))
+  }
   const headers: Record<string, string> = { accept: 'application/json' }
   if (c.env.LIFI_API_KEY) headers['x-lifi-api-key'] = c.env.LIFI_API_KEY
   const res = await fetch(`${LIFI_API_URL}/${endpoint}${url.search}`, { headers })
