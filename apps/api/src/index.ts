@@ -1,5 +1,6 @@
 import { getBalance, LIFI_API_URL, TEMPO_CHAIN_ID, totalUsd } from '@pitstop/sdk'
 import { Hono } from 'hono'
+import { checkAgents, handleTelegramUpdate } from './alerts.js'
 import { getAddress, isAddress } from 'viem'
 
 type Bindings = {
@@ -9,6 +10,8 @@ type Bindings = {
   DB?: D1Database
   LIFI_API_KEY?: string
   TELEGRAM_BOT_TOKEN?: string
+  /** Shared secret Telegram sends in X-Telegram-Bot-Api-Secret-Token. */
+  TELEGRAM_WEBHOOK_SECRET?: string
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -73,10 +76,25 @@ app.get('/api/agents/:address', async (c) => {
   return row ? c.json(row) : c.json({ error: 'not found' }, 404)
 })
 
+// Telegram bot webhook. Telegram signs each call with the secret set in setWebhook.
+app.post('/api/telegram/webhook', async (c) => {
+  const { DB, TELEGRAM_BOT_TOKEN: token, TELEGRAM_WEBHOOK_SECRET: secret } = c.env
+  if (!DB || !token || !secret) return c.json({ error: 'alerts not configured' }, 503)
+  if (c.req.header('x-telegram-bot-api-secret-token') !== secret) return c.json({ error: 'forbidden' }, 403)
+  await handleTelegramUpdate(DB, token, await c.req.json().catch(() => ({})))
+  return c.json({ ok: true })
+})
+
 app.all('/api/*', (c) => c.json({ error: 'not found' }, 404))
 app.all('/lifi/*', (c) => c.json({ message: 'Not found' }, 404))
 
 // Everything else is the web app.
 app.all('*', (c) => c.env.ASSETS.fetch(c.req.raw))
 
-export default app
+export default {
+  fetch: app.fetch,
+  // Cron: watch registered agents and send Telegram alerts.
+  async scheduled(_event: ScheduledController, env: Bindings, ctx: ExecutionContext) {
+    if (env.DB && env.TELEGRAM_BOT_TOKEN) ctx.waitUntil(checkAgents(env.DB, env.TELEGRAM_BOT_TOKEN))
+  },
+} satisfies ExportedHandler<Bindings>

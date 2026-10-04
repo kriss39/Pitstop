@@ -20,6 +20,6 @@ database_name = "pitstop"
 database_id = "30973102-b7b9-490f-9ad6-6fe3f7021007"
 migrations_dir = "migrations"
 
-# Balance watcher, added on Day 5.
-# [triggers]
-# crons = ["*/5 * * * *"]
+# Balance and limit watcher for Telegram alerts (every minute).
+[triggers]
+crons = ["* * * * *"]
