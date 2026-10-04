@@ -1,22 +1,55 @@
-Meet Pitstop ⛽
+👋 Hi, we're Pitstop ⛽🏁
 
-AI agents pay for APIs per call on Tempo. But getting money to an agent is slow, and handing it a wallet is risky.
+The pit crew for AI agents.
 
-Pitstop fuels your agent from any chain in seconds, with a daily budget the chain itself enforces.
+Agents now pay for the APIs they use, a cent at a time 🤖💸 But:
+🌉 their money sits on other chains
+🔓 a normal wallet has no brakes
 
-fuel.pitstopgas.workers.dev
+We fuel them from any chain in seconds, with a daily budget the chain enforces 👇
 ---
-How it works:
+🤖 What's an AI agent?
 
-⛽ Fuel: pay with USDC, ETH or SOL from wherever your money is. Lands on Tempo in ~2 s
-🔒 Guard: your passkey sets a daily limit, one token and an end date. The agent can't change them
-👀 Watch: live dashboard + Telegram alerts
-🔁 Refill: agents top themselves up
+An AI that doesn't just answer, it gets things done. Give it a goal and it plans steps, calls tools and finishes the job.
+
+Good tools cost money, so it pays per call:
+📊 a token price: $0.001
+🧠 smart-money data: $0.01
+
+No card, no account, no API key.
 ---
-Already live on mainnet: our test agent paid Nansen $0.01 per call until it hit its limit.
+⛽ Fuel
 
-The 5th call was refused by Tempo itself. No transaction, no cost.
+Your money is on Solana, Base, Ethereum… but the agent pays on Tempo.
+
+With Pitstop you pay in USDC, ETH or SOL from wherever it is. LI.FI finds the route and it lands in the agent's wallet in ~2 seconds ⚡
+
+Every fee is shown before you sign 🧾
 ---
-Our goal: giving an agent a budget should be as easy, and as safe, as giving it an API key.
+🔒 Guard
 
-Works with Claude and Cursor through MCP. Built on Tempo × LI.FI.
+Your passkey (Face ID / Touch ID) owns the wallet. The agent only gets its own key, with:
+📅 a daily limit
+🪙 one token
+⏳ an end date
+
+Tempo checks every payment. Over the limit? Refused before it happens. The agent can't loosen its own leash 🦮
+---
+✅ Proven on mainnet
+
+Our test agent paid Nansen $0.01 per call:
+✅ call 1
+✅ call 2
+✅ call 3
+✅ call 4
+⛔ call 5: refused by Tempo itself
+
+No transaction, no cost. The limit held 💪
+---
+👀 Watch + 🔁 Refill
+
+A live dashboard, Telegram alerts when fuel runs low, and agents that top themselves up. Works with Claude & Cursor via MCP 🛠️
+
+🎯 Our goal: give your agent a budget, not your wallet.
+
+Try it 👉 fuel.pitstopgas.workers.dev
