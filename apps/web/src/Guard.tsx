@@ -362,7 +362,8 @@ export function Guard() {
                   </div>
                   <p className="note warn small">
                     This is the agent’s secret key. Whoever has it can spend up to the daily limit until you revoke it. Pitstop doesn’t keep a
-                    copy, and it’s gone when you leave this page.
+                    copy, and it’s gone when you leave this page. After pasting it on the agent’s machine, copy something else to clear your
+                    clipboard, and delete the downloaded file once it’s moved.
                   </p>
                   <label className="check">
                     <input type="checkbox" checked={keySaved} onChange={(e) => setKeySaved(e.target.checked)} />

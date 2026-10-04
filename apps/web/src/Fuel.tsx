@@ -460,7 +460,8 @@ export function Fuel() {
           {busy && steps.length ? 'Fueling…' : cta.label}
         </button>
         <p className="swap-foot">
-          Includes a {PITSTOP_FEE * 100}% Pitstop fee. You sign in your own wallet; approvals are for the exact amount; the route is checked before you sign.
+          Includes a {PITSTOP_FEE * 100}% Pitstop fee. You sign in your own wallet, and approvals are for the exact amount. Before you sign,
+          Pitstop checks LI.FI’s route: it must end at this agent on Tempo, send exactly this amount and use the LI.FI contract.
         </p>
       </section>
 

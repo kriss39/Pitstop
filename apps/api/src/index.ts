@@ -85,6 +85,11 @@ const LIFI_PATHS = new Set(['quote', 'status'])
 app.get('/lifi/v1/:endpoint', async (c) => {
   const endpoint = c.req.param('endpoint')
   if (!LIFI_PATHS.has(endpoint)) return c.json({ message: 'Not found' }, 404)
+  // Only the Pitstop site may use this key; agents and the SDK call LI.FI with their own.
+  const site = c.req.header('sec-fetch-site')
+  const origin = c.req.header('origin')
+  if ((site && site !== 'same-origin') || (origin && origin !== new URL(c.req.url).origin))
+    return c.json({ message: 'Use LI.FI directly: https://li.quest' }, 403)
   const url = new URL(c.req.url)
   // Quotes made with our key are always Pitstop's, at Pitstop's fee, whatever the caller asked for.
   if (endpoint === 'quote') {

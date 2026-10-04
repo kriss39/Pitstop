@@ -8,6 +8,8 @@ const LIMIT_USED_BELOW = 10_000n
 
 /** Most agents one chat can watch; keeps the cron's work per run bounded. */
 const MAX_WATCHES_PER_CHAT = 10
+/** Most watches in total, so the every-minute cron stays within the Worker's subrequest budget. */
+const MAX_WATCHES_TOTAL = 150
 
 type WatchRow = {
   chat_id: string
@@ -83,6 +85,8 @@ export async function handleTelegramUpdate(db: D1Database, token: string, update
     const token = asToken(tokenArg)
     const count = await db.prepare('SELECT count(*) AS n FROM watches WHERE chat_id = ?1 AND address != ?2').bind(String(chatId), address).first<{ n: number }>()
     if ((count?.n ?? 0) >= MAX_WATCHES_PER_CHAT) return reply(`This chat already watches ${MAX_WATCHES_PER_CHAT} agents. Send /unwatch <wallet> first.`)
+    const total = await db.prepare('SELECT count(*) AS n FROM watches WHERE NOT (chat_id = ?1 AND address = ?2)').bind(String(chatId), address).first<{ n: number }>()
+    if ((total?.n ?? 0) >= MAX_WATCHES_TOTAL) return reply('Pitstop alerts are full right now. Please try again later.')
     // Each chat has its own row, so watching an agent never changes anyone else's alerts.
     await db
       .prepare(

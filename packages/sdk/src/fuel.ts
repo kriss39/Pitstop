@@ -279,6 +279,11 @@ export async function fuelQuote(params: FuelQuoteParameters): Promise<FuelQuote>
     if (tx.chainId !== params.fromChain) throw new LifiError(`Transaction is for chain ${tx.chainId}, expected ${params.fromChain}`)
     if (!tx.to || !isAddressEqual(tx.to as Address, lifiDiamond(params.fromChain)))
       throw new LifiError(`Transaction targets ${tx.to}, not the LI.FI Diamond`)
+    // Native coin attached to the call: none for token routes, at most the amount (plus 1%) for gas-token routes.
+    const value = BigInt(tx.value ?? 0)
+    const native = NATIVE_TOKENS.has(params.fromToken.toLowerCase())
+    if (!native && value !== 0n) throw new LifiError(`Token route also asks for ${value} wei of the native coin`)
+    if (native && value > (params.fromAmount * 101n) / 100n) throw new LifiError(`Route asks for ${value} wei, more than the amount`)
     // The token approval (if any) may only go to the same Diamond.
     if (q.estimate.approvalAddress && !isAddressEqual(q.estimate.approvalAddress as Address, lifiDiamond(params.fromChain)))
       throw new LifiError(`Approval goes to ${q.estimate.approvalAddress}, not the LI.FI Diamond`)

@@ -53,6 +53,8 @@ export type Stats = {
 }
 
 let cached: { at: number; stats: Stats } | undefined
+/** A recent failure, remembered briefly so a LI.FI outage doesn't turn every page view into 11 calls. */
+let failed: { at: number; error: Error } | undefined
 
 async function lifiGet<T>(path: string, apiKey?: string): Promise<T> {
   const res = await fetch(`${LIFI}${path}`, {
@@ -95,6 +97,20 @@ const round = (n: number) => Math.round(n * 100) / 100
 
 export async function getStats(db: D1Database | undefined, apiKey?: string): Promise<Stats> {
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.stats
+  if (failed && Date.now() - failed.at < 60_000) {
+    if (cached) return cached.stats
+    throw failed.error
+  }
+  try {
+    return await computeStats(db, apiKey)
+  } catch (e) {
+    failed = { at: Date.now(), error: e instanceof Error ? e : new Error(String(e)) }
+    if (cached) return cached.stats
+    throw failed.error
+  }
+}
+
+async function computeStats(db: D1Database | undefined, apiKey?: string): Promise<Stats> {
 
   const [transfers, fees, watches] = await Promise.all([
     allTransfers(apiKey),

@@ -113,7 +113,24 @@ export async function refillIfLow(
   })
   const client = baseClient(config.baseRpcUrl)
   const wallet = createWalletClient({ account, chain: base, transport: http(config.baseRpcUrl) })
-  const txHash = await executeFuel({ quote, wallet, client, onStep: (step) => log(`  ${step.step}${'hash' in step ? ` ${step.hash}` : ''}`) })
+  let sentHash: Hex | undefined
+  let txHash: Hex
+  try {
+    txHash = await executeFuel({
+      quote,
+      wallet,
+      client,
+      onStep: (step) => {
+        if (step.step === 'send') sentHash = step.hash
+        log(`  ${step.step}${'hash' in step ? ` ${step.hash}` : ''}`)
+      },
+    })
+  } catch (error) {
+    // Broadcast but not confirmed (e.g. the RPC timed out): it may still land, so count it.
+    if (!sentHash) throw error
+    log(`  sent ${sentHash}, but the receipt check failed: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`)
+    txHash = sentHash
+  }
 
   // The money has left the home wallet: count it now, and always hand the new state back,
   // so a slow or failed bridge check can't lead to a second send.

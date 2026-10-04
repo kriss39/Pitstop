@@ -145,11 +145,11 @@ export function Dashboard() {
                   const name = svc?.name
                   return (
                     <li key={r.txHash}>
-                      {svc ? (
+                      {svc?.icon ? (
                         <img className="avatar" src={svc.icon} alt="" width={34} height={34} />
                       ) : (
                         <span className={`avatar${r.amount ? '' : ' fee'}`} aria-hidden>
-                          {r.amount ? '→' : '⛽'}
+                          {svc ? svc.name[0] : r.amount ? '→' : '⛽'}
                         </span>
                       )}
                       <span style={{ minWidth: 0 }}>
