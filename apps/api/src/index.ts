@@ -1,7 +1,7 @@
 import { getBalance, LIFI_API_URL, TEMPO_CHAIN_ID, totalUsd } from '@pitstop/sdk'
 import { Hono } from 'hono'
 import { checkAgents, handleTelegramUpdate } from './alerts.js'
-import { getAddress, isAddress } from 'viem'
+import { isAddress } from 'viem'
 
 type Bindings = {
   /** Static web app (apps/web/dist). */
@@ -91,37 +91,6 @@ app.get('/lifi/v1/:endpoint', async (c) => {
     status: res.status,
     headers: { 'content-type': res.headers.get('content-type') ?? 'application/json', 'cache-control': 'no-store' },
   })
-})
-
-// Agent registry: public Tempo addresses the watcher should keep an eye on.
-app.post('/api/agents', async (c) => {
-  const db = c.env.DB
-  if (!db) return c.json({ error: 'registry not configured' }, 503)
-  const body = await c.req.json<{ address?: string; name?: string; minBalanceUsd?: number }>().catch(() => null)
-  if (!body?.address || !isAddress(body.address)) return c.json({ error: 'address must be a 0x address' }, 400)
-  const name = (body.name ?? '').trim().slice(0, 64) || null
-  const minBalance = Number.isFinite(body.minBalanceUsd) ? Math.max(0, Math.min(1000, Number(body.minBalanceUsd))) : 1
-  const address = getAddress(body.address)
-  await db
-    .prepare(
-      `INSERT INTO agents (address, name, min_balance_usd) VALUES (?1, ?2, ?3)
-       ON CONFLICT(address) DO UPDATE SET name = coalesce(?2, name), min_balance_usd = ?3`,
-    )
-    .bind(address, name, minBalance)
-    .run()
-  return c.json({ address, name, minBalanceUsd: minBalance }, 201)
-})
-
-app.get('/api/agents/:address', async (c) => {
-  const db = c.env.DB
-  if (!db) return c.json({ error: 'registry not configured' }, 503)
-  const address = c.req.param('address')
-  if (!isAddress(address)) return c.json({ error: 'invalid address' }, 400)
-  const row = await db
-    .prepare('SELECT address, name, min_balance_usd AS minBalanceUsd, created_at AS createdAt FROM agents WHERE address = ?1')
-    .bind(getAddress(address))
-    .first()
-  return row ? c.json(row) : c.json({ error: 'not found' }, 404)
 })
 
 // Telegram bot webhook. Telegram signs each call with the secret set in setWebhook.
