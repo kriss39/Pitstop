@@ -2,6 +2,9 @@ name = "pitstop"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+# No per-version preview URLs; only the main workers.dev URL is public.
+preview_urls = false
 
 # The web app (apps/web/dist) is served from the same Worker, so /lifi and /api are same-origin.
 [assets]
