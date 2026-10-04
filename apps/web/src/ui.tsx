@@ -13,7 +13,7 @@ import {
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { formatUnits, isAddress, type Address, type Hex } from 'viem'
 import { Account } from 'viem/tempo'
-import { FlagChip, FuelCells, type Flag } from './basics'
+import { FlagChip, FuelCells, tokenLabel, type Flag } from './basics'
 
 export * from './basics'
 
@@ -78,8 +78,8 @@ export function AddressField({ label, value, onChange, placeholder = '0x…' }: 
   )
 }
 
-/** Below one cent the key can't pay even the cheapest MPP call. */
-const USED_UP = 10_000n
+/** Below a tenth of a cent the key can't pay even the cheapest MPP call ($0.001). */
+const USED_UP = 1_000n
 
 export type KeyView = {
   flag: Flag
@@ -115,6 +115,7 @@ export function describeKey(status: AgentKeyStatus | undefined, spends: Spend[] 
 
   const base = { limit, limitEstimated, spentInPeriod, cells }
   if (status.remaining < USED_UP) return { flag: 'red', label: 'Limit used — blocked', ...base }
+  if (status.remaining < 10_000n) return { flag: 'yellow', label: 'Almost used up', ...base }
   if (limit && Number(status.remaining) / Number(limit) <= 0.2) return { flag: 'yellow', label: 'Near limit', ...base }
   return { flag: 'green', label: 'Active', ...base }
 }
@@ -163,8 +164,11 @@ export function useAgent(wallet?: string, key?: string, withSpends = false, toke
 }
 
 /** Pit Board card for an agent: what's left today, in big numerals, plus the flag. */
-export function AgentBoard({ data, keyAddress, tag = 'P1' }: { data: AgentData; keyAddress?: string; tag?: string }) {
-  const view = describeKey(data.status, data.spends, keyAddress ? savedLimit.get(keyAddress) : undefined)
+export function AgentBoard({ data, keyAddress, limit, tag = 'P1' }: { data: AgentData; keyAddress?: string; limit?: bigint; tag?: string }) {
+  const view: KeyView =
+    data.loading && !data.status && keyAddress
+      ? { flag: 'none', label: 'Checking…' }
+      : describeKey(data.status, data.spends, limit ?? (keyAddress ? savedLimit.get(keyAddress) : undefined))
   const cls = view.flag === 'red' ? 'board blocked' : view.flag === 'black' ? 'board revoked' : 'board'
   return (
     <div className={cls} aria-live="polite">
@@ -175,7 +179,7 @@ export function AgentBoard({ data, keyAddress, tag = 'P1' }: { data: AgentData; 
       <div>
         <div className="board-big">${data.status ? money(data.status.remaining) : '–'}</div>
         <div className="board-label">
-          {data.token} left today{view.limit != null && ` · of ${view.limitEstimated ? '≈' : ''}$${money(view.limit)}`}
+          <span style={{ textTransform: 'none' }}>{tokenLabel(data.token)}</span> left today{view.limit != null && ` · of ${view.limitEstimated ? '≈' : ''}$${money(view.limit)}`}
         </div>
       </div>
       {view.cells && <FuelCells {...view.cells} />}

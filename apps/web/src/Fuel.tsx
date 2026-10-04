@@ -27,7 +27,7 @@ import {
 } from 'viem'
 import { arbitrum, arc, avalanche, base, mainnet, optimism, polygon, type Chain } from 'viem/chains'
 import { Account } from 'viem/tempo'
-import { cleanDecimal, decimalValue, savedOwner, short, usd, useAgent } from './ui'
+import { cleanDecimal, decimalValue, savedOwner, tokenLabel, short, usd, useAgent } from './ui'
 import { solanaBalances } from './solana'
 import { openConnect, switchChain, useWallet } from './wallet'
 
@@ -38,6 +38,8 @@ const COST_WARN = 0.03
 const COST_BLOCK = 0.1
 const LIFI_PROXY = '/lifi/v1'
 const SOLANA_PREVIEW_SENDER = '11111111111111111111111111111111'
+/** With no agent entered yet, quotes go to Pitstop's mainnet demo agent so the route and costs still show. */
+const EXAMPLE_AGENT = '0x9Bd4984986D273ee27077C42Fe63dFB712b50bC0'
 
 type Source = 'base' | 'arbitrum' | 'optimism' | 'ethereum' | 'polygon' | 'avalanche' | 'arc' | 'solana'
 type SourceInfo = {
@@ -193,13 +195,15 @@ export function Fuel() {
   }
 
   /** Quotes for `from` (the connected wallet, or the agent address as a stand-in for a live preview). */
-  const newQuote = async (from: string) =>
+  // An empty agent field still gets an example quote; a mistyped address gets none.
+  const quoteTo = agentOk ? agent : agent === '' ? EXAMPLE_AGENT : undefined
+  const newQuote = async (from: string, to: string) =>
     fuelQuote({
       fromChain: src.chainId,
       fromToken: pay.address,
       fromAmount,
       fromAddress: from,
-      toAddress: agent as Address,
+      toAddress: to as Address,
       toToken: receive,
       integrator: __LIFI_INTEGRATOR__,
       fee: PITSTOP_FEE,
@@ -208,13 +212,13 @@ export function Fuel() {
 
   // Live quote as you type. Before a wallet is connected, previews quote for a stand-in sender:
   // the agent's address on EVM chains, the System Program address on Solana.
-  const previewFrom = sender ?? (agentOk ? (isEvm ? agent : SOLANA_PREVIEW_SENDER) : undefined)
+  const previewFrom = sender ?? (quoteTo ? (isEvm ? quoteTo : SOLANA_PREVIEW_SENDER) : undefined)
   const [quoting, setQuoting] = useState(false)
   const [quoteError, setQuoteError] = useState<string>()
   useEffect(() => setQuote(undefined), [agent, source, receive, useNative])
   useEffect(() => {
     setQuoteError(undefined)
-    if (!agentOk || !amountOk || !previewFrom || busy) {
+    if (!quoteTo || !amountOk || !previewFrom || busy) {
       setQuote(undefined)
       setQuoting(false)
       return
@@ -222,7 +226,7 @@ export function Fuel() {
     let live = true
     setQuoting(true)
     const t = setTimeout(() => {
-      newQuote(previewFrom).then(
+      newQuote(previewFrom, quoteTo).then(
         (q) => live && setQuote(q),
         (e) => live && setQuoteError(e instanceof Error && /no available quotes|not found/i.test(e.message) ? 'No route for this amount. Try more, or another token.' : 'Couldn’t get a quote. Try again.'),
       ).finally(() => live && setQuoting(false))
@@ -237,7 +241,7 @@ export function Fuel() {
     run(async () => {
       setFinished(undefined)
       // Always sign a fresh quote for the real sender, and re-check it first.
-      const q = await newQuote(sender!)
+      const q = await newQuote(sender!, agent)
       setQuote(q)
       if (useNative && q.fromAmountUSD != null && q.fromAmountUSD < MIN_USD * 0.99) throw new Error(`The minimum is $${MIN_USD} per transfer.`)
       if (q.fromAmountUSD && q.toAmountUSD && 1 - q.toAmountUSD / q.fromAmountUSD > COST_BLOCK)
@@ -394,7 +398,7 @@ export function Fuel() {
               <span className="sr-only">Token received</span>
               <select value={receive} onChange={(e) => setReceive(e.target.value as FuelTokenSymbol)} disabled={busy}>
                 {FUEL_TOKENS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>{tokenLabel(t)}</option>
                 ))}
               </select>
             </label>
@@ -425,7 +429,8 @@ export function Fuel() {
           {agent !== '' && !agentOk && <small className="note bad">That isn’t a valid 0x address.</small>}
           {agent === '' && (
             <p className="swap-text small">
-              Paste the agent’s Tempo wallet, or <a href="/guard">create one on Guard</a> with a passkey. It takes a minute.
+              {quote ? 'Example quote to Pitstop’s demo agent. ' : ''}Paste your agent’s Tempo wallet, or{' '}
+              <a href="/guard">create one on Guard</a> with a passkey. It takes a minute.
             </p>
           )}
         </div>

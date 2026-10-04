@@ -3,7 +3,13 @@ import { useState, type ReactNode } from 'react'
 // Small shared pieces with no SDK or wallet code, so light pages (landing, header, footer)
 // don't pull in the whole Tempo stack.
 
+/** How a token is named on screen: USDC.e and pathUSD as their issuers write them. */
+export const tokenLabel = (symbol: string) => (symbol === 'USDCe' ? 'USDC.e' : symbol === 'PathUSD' ? 'pathUSD' : symbol)
+
 export const APP_URL = 'https://fuel.pitstopgas.workers.dev'
+
+/** The mainnet demo agent: its wallet, key and $0.05 daily limit, as a dashboard link. */
+export const DEMO_DASHBOARD = '/dashboard?wallet=0x9Bd4984986D273ee27077C42Fe63dFB712b50bC0&key=0xd2a1B1a5c8cd78A31F95E9b41Dd7c1Eb92900074&limit=0.05'
 
 export const BOT_HANDLE = 'pitstop_alert_bot'
 

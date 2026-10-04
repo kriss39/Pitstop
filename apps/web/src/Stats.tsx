@@ -97,7 +97,7 @@ export function StatsPage() {
                       {t.chain[0]}
                     </span>
                     <span style={{ minWidth: 0 }}>
-                      {t.chain} → Tempo <span className="muted small">· {t.token} via {TOOLS[t.tool] ?? t.tool}</span>
+                      {t.chain} → Tempo <span className="muted small">· {t.token === 'USDCe' ? 'USDC.e' : t.token} via {TOOLS[t.tool] ?? t.tool}</span>
                       <br />
                       {t.link ? (
                         <a className="when" href={t.link} target="_blank" rel="noreferrer">

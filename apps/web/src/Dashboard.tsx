@@ -1,9 +1,10 @@
 import { FUEL_TOKENS, type FuelTokenSymbol, type Spend } from '@pitstop/sdk'
 import { useMemo, useState } from 'react'
-import { isAddress } from 'viem'
+import { isAddress, parseUnits } from 'viem'
 import { Account } from 'viem/tempo'
+import { DEMO_DASHBOARD } from './basics'
 import { serviceAt } from './services'
-import { AddressField, AgentBoard, APP_URL, BOT_HANDLE, CopyButton, PanelHead, savedKey, savedOwner, savedToken, short, usd, useAgent } from './ui'
+import { AddressField, AgentBoard, APP_URL, BOT_HANDLE, CopyButton, isDecimal, PanelHead, tokenLabel, savedKey, savedOwner, savedToken, short, usd, useAgent } from './ui'
 
 type Row = { txHash: string; time: number; to: string; amount: bigint; fee: bigint }
 
@@ -50,7 +51,13 @@ export function Dashboard() {
   const payments = rows.filter((r) => r.amount > 0n)
   const visible = (showFees ? rows : payments).slice(0, showAll ? undefined : 8)
   const hiddenCount = (showFees ? rows : payments).length - visible.length
-  const spentTotal = rows.reduce((sum, r) => sum + r.amount + r.fee, 0n)
+  // Payments to known MPP services, and everything else the wallet sent (e.g. the owner's own transfers).
+  const servicePayments = payments.filter((r) => service(r.to))
+  const otherTransfers = payments.filter((r) => !service(r.to))
+  const serviceTotal = servicePayments.reduce((sum, r) => sum + r.amount + r.fee, 0n)
+  const otherTotal = otherTransfers.reduce((sum, r) => sum + r.amount + r.fee, 0n)
+  // The real daily limit, when the link carries it (the chain only reports what's left).
+  const urlLimit = isDecimal(q.get('limit') ?? '') ? parseUnits(q.get('limit')!, 6) : undefined
   // Spending per service, largest first; other transfers last.
   const byService = useMemo(() => {
     const m = new Map<string, { name: string; icon?: string; total: bigint; count: number }>()
@@ -96,6 +103,7 @@ export function Dashboard() {
             {wallet !== '' && <small className="note bad">That isn’t a valid 0x address.</small>}
           </div>
           <a className="btn signal-btn swap-cta" href="/guard">No agent yet? Set one up</a>
+          <a className="btn ghost swap-cta" href={DEMO_DASHBOARD}>See the live demo agent</a>
           <p className="swap-foot">This device has {owner ? 'an owner passkey, but no wallet was found for it' : 'no owner passkey'}.</p>
         </section>
       </main>
@@ -112,7 +120,7 @@ export function Dashboard() {
             <span className="sr-only">Token the key spends</span>
             <select value={token} onChange={(e) => setToken(e.target.value as FuelTokenSymbol)}>
               {FUEL_TOKENS.map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t} value={t}>{tokenLabel(t)}</option>
               ))}
             </select>
           </label>
@@ -124,7 +132,7 @@ export function Dashboard() {
 
       <div className="dash">
         <div className="col">
-          <AgentBoard data={agent} keyAddress={isAddress(key) ? key : undefined} />
+          <AgentBoard data={agent} keyAddress={isAddress(key) ? key : undefined} limit={urlLimit} />
 
           <section className="panel">
             <PanelHead title="Activity">
@@ -135,7 +143,13 @@ export function Dashboard() {
             </PanelHead>
             {rows.length > 0 && (
               <p className="feed-sum">
-                <b>{payments.length}</b> {payments.length === 1 ? 'payment' : 'payments'} · <b>{amt(spentTotal)}</b> spent in the last ~15 hours, fees included
+                <b>{servicePayments.length}</b> {servicePayments.length === 1 ? 'payment' : 'payments'} to MPP services · <b>{amt(serviceTotal)}</b>
+                {otherTransfers.length > 0 && (
+                  <>
+                    {' '}· {otherTransfers.length} other {otherTransfers.length === 1 ? 'transfer' : 'transfers'} · {amt(otherTotal)}
+                  </>
+                )}{' '}
+                in the last ~15 hours, fees included
               </p>
             )}
             {visible.length ? (
@@ -188,7 +202,7 @@ export function Dashboard() {
                   .map((b) => (
                     <li key={b.symbol} className={b.symbol === token ? 'spendable' : undefined}>
                       <span>
-                        {b.symbol}
+                        {tokenLabel(b.symbol)}
                         {b.symbol === token ? <small> · the agent spends this</small> : <small> · not spendable by the key</small>}
                       </span>
                       <b>${usd(b.raw)}</b>

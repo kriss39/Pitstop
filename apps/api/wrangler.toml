@@ -11,7 +11,8 @@ preview_urls = false
 directory = "../web/dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/lifi/*"]
+# /assets/* goes through the Worker too, so a missing build file is a 404 rather than the app's HTML.
+run_worker_first = ["/api/*", "/lifi/*", "/assets/*"]
 
 # Agent registry (`wrangler d1 create pitstop`).
 [[d1_databases]]

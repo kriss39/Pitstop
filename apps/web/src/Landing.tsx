@@ -1,8 +1,10 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { BOT_HANDLE, CopyButton, FlagChip, FuelCells } from './basics'
+import { BOT_HANDLE, CopyButton, DEMO_DASHBOARD, FlagChip, FuelCells } from './basics'
 
 /** The real mainnet demo, replayed: 4 Nansen calls at $0.01, the 5th refused by Tempo. */
 const CALLS = ['USDC', 'WETH', 'LINK', 'UNI', 'AAVE']
+/** What was left of the $0.05 limit after each call (network fees count too, so a little more than $0.01 goes each time). */
+const LEFT = ['0.0500', '0.0400', '0.0299', '0.0199', '0.0099']
 
 function ReplayBoard() {
   const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -15,7 +17,7 @@ function ReplayBoard() {
 
   const paid = Math.min(step, 4)
   const blocked = step >= 5
-  const left = 5 - paid
+  const left = LEFT[paid]!
   return (
     <div className={`board rise d3 ${blocked ? 'blocked shake' : ''}`} aria-label="Replay of the mainnet demo">
       <div className="board-top">
@@ -23,10 +25,10 @@ function ReplayBoard() {
         {blocked ? <FlagChip flag="red">Blocked</FlagChip> : paid >= 4 ? <FlagChip flag="yellow">Near limit</FlagChip> : <FlagChip flag="green">Active</FlagChip>}
       </div>
       <div>
-        <div className="board-big tick" key={left}>${(left / 100).toFixed(2)}</div>
+        <div className="board-big tick" key={left}>${left}</div>
         <div className="board-label">left today · of $0.05</div>
       </div>
-      <FuelCells total={5} left={left} />
+      <FuelCells total={5} left={Math.floor(Number(left) * 100 + 1e-9)} />
       <ol className="steps" style={{ fontFamily: 'var(--mono)', fontSize: 13 }}>
         {CALLS.map((token, i) => {
           const state = i < paid ? 'done' : i === 4 && blocked ? 'error' : i === paid ? 'active' : 'todo'
@@ -35,7 +37,7 @@ function ReplayBoard() {
               <span className="dot" aria-hidden />
               <span>Nansen · {token}</span>
               <span className="t" style={{ color: state === 'error' ? 'var(--bad)' : 'var(--slab-muted)' }}>
-                {state === 'done' ? 'paid $0.01' : state === 'error' ? 'refused by Tempo' : ''}
+                {state === 'done' ? 'paid $0.01' : state === 'error' ? 'needs $0.01 + fee · refused by Tempo' : ''}
               </span>
             </li>
           )
@@ -49,7 +51,7 @@ const PROOF = [
   { v: '~2 s', t: 'Fuel lands on Tempo', d: '2 USDC, real transfer', href: 'https://scan.li.fi/tx/0x53d3dda1b3309d2888cea5c352d0ab9f2120556990286b2e1ef11a33f9a9f9a2' },
   { v: 'Any', t: 'Source chain', d: 'Solana, Ethereum, L2s · more soon', href: '/docs#fuel' },
   { v: '$0.01', t: 'Agent paid Nansen', d: 'one API call', href: 'https://explore.tempo.xyz/tx/0xe172ca615f977aaeaa2ca03635a7715d129229470a25d987f397e184514ca7d0' },
-  { v: 'Blocked', t: 'Over the limit', d: 'stopped by Tempo', href: 'https://explore.tempo.xyz/address/0x9Bd4984986D273ee27077C42Fe63dFB712b50bC0' },
+  { v: 'Blocked', t: 'Over the limit', d: 'refused before it hit the chain · see the agent', href: DEMO_DASHBOARD },
 ]
 
 const BUILT_ON = [
@@ -115,7 +117,7 @@ const USES = [
 const PRICES = [
   ['$0.001', 'a token price', 'Codex'],
   ['$0.01', 'smart-money data on a token', 'Nansen'],
-  ['100+', 'paid services agents can use', 'mpp.dev'],
+  ['130+', 'paid services agents can use', 'mpp.dev'],
 ]
 
 const WRONG = [
@@ -310,7 +312,7 @@ export function Landing() {
             <div className="cta rise d2">
               <a className="btn signal-btn" href="/fuel">Fuel an agent</a>
               <a className="btn" href="/guard">Set a limit</a>
-              <a className="btn ghost" href="/docs">How to use</a>
+              <a className="btn ghost" href={DEMO_DASHBOARD}>See a live agent</a>
             </div>
           </div>
           <ReplayBoard />

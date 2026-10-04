@@ -127,7 +127,13 @@ app.all('/api/*', (c) => c.json({ error: 'not found' }, 404))
 app.all('/lifi/*', (c) => c.json({ message: 'Not found' }, 404))
 
 // Everything else is the web app.
-app.all('*', (c) => c.env.ASSETS.fetch(c.req.raw))
+app.all('*', async (c) => {
+  const res = await c.env.ASSETS.fetch(c.req.raw)
+  // A missing build file must be a real 404, not the app's HTML (that breaks a stale page with a module error).
+  if (new URL(c.req.url).pathname.startsWith('/assets/') && (res.headers.get('content-type') ?? '').includes('text/html'))
+    return new Response('Not found', { status: 404 })
+  return res
+})
 
 export default {
   fetch: app.fetch,

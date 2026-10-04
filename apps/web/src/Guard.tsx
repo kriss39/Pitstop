@@ -29,6 +29,7 @@ import {
   savedOwner,
   savedToken,
   short,
+  tokenLabel,
   usd,
   useAgent,
   type OwnerCredential,
@@ -422,7 +423,7 @@ export function Guard() {
                     <span className="sr-only">Token the agent may spend</span>
                     <select value={token} onChange={(e) => setToken(e.target.value as FuelTokenSymbol)} disabled={busy || !!active}>
                       {FUEL_TOKENS.map((t) => (
-                        <option key={t} value={t}>{t}</option>
+                        <option key={t} value={t}>{tokenLabel(t)}</option>
                       ))}
                     </select>
                   </label>
@@ -439,7 +440,7 @@ export function Guard() {
                 </div>
               </div>
               <span className="swap-sub">
-                {active ? `Scoped to ${token}. Tempo fees count toward the limit.` : `per day, in ${token} only. Tempo fees count too, so leave a little room.`}
+                {active ? `Scoped to ${tokenLabel(token)}. Tempo fees count toward the limit.` : `per day, in ${tokenLabel(token)} only. Tempo fees count too, so leave a little room.`}
               </span>
             </div>
 
@@ -501,7 +502,7 @@ export function Guard() {
         )}
 
         {!limitOk && limit !== '' && <p className="note bad">The daily limit must be between 0 and 1000.</p>}
-        {cred && agent.balances != null && !hasGas && <p className="note warn">The wallet pays Tempo fees in stablecoins. Fuel it with $1–2 first.</p>}
+        {cred && agent.balances != null && !hasGas && <p className="note warn">The wallet pays Tempo fees in stablecoins, so fuel it first ($5 or more on the Fuel page; a few cents of it covers fees).</p>}
 
         <button className="signal-btn swap-cta" onClick={cta.onClick} disabled={busy || cta.disabled}>
           {busy ? 'Waiting for your passkey…' : cta.label}

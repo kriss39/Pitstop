@@ -4,7 +4,7 @@ import { formatUnits, getAddress, isAddress, type Address } from 'viem'
 export const APP_URL = 'https://fuel.pitstopgas.workers.dev'
 const LOW_BALANCE_REPEAT_MS = 6 * 60 * 60_000
 /** Below one cent the key can't pay even the cheapest MPP call, so treat the limit as used up. */
-const LIMIT_USED_BELOW = 10_000n
+const LIMIT_USED_BELOW = 1_000n
 
 /** Most agents one chat can watch; keeps the cron's work per run bounded. */
 const MAX_WATCHES_PER_CHAT = 10

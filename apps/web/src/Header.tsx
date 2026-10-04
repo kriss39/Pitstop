@@ -7,6 +7,7 @@ const LINKS = [
   { href: '/guard', label: 'Guard' },
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/docs', label: 'Docs' },
+  { href: '/stats', label: 'Stats' },
 ]
 
 /** Pitstop mark: a P whose bowl is a fuel gauge. */

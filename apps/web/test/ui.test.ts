@@ -26,6 +26,7 @@ describe('describeKey', () => {
   it('reports an active key', () => expect(describeKey(key, [], 5_000_000n)).toMatchObject({ flag: 'green' }))
   it('reports an expired key as expired, not active', () => expect(describeKey({ ...key, expiry: now - 60 }, [])).toMatchObject({ label: 'Expired' }))
   it('reports a revoked key', () => expect(describeKey({ ...key, revoked: true }, [])).toMatchObject({ flag: 'black' }))
-  it('reports a used-up limit as blocked', () => expect(describeKey({ ...key, remaining: 5_000n }, [], 5_000_000n)).toMatchObject({ flag: 'red' }))
+  it('reports a used-up limit as blocked', () => expect(describeKey({ ...key, remaining: 500n }, [], 5_000_000n)).toMatchObject({ flag: 'red' }))
+  it('still allows a $0.001 call with half a cent left', () => expect(describeKey({ ...key, remaining: 5_000n }, [], 5_000_000n)).toMatchObject({ label: 'Almost used up' }))
   it('warns near the limit', () => expect(describeKey({ ...key, remaining: 500_000n }, [], 5_000_000n)).toMatchObject({ flag: 'yellow' }))
 })
