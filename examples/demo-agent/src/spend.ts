@@ -28,8 +28,10 @@ try {
   console.log(`Remaining after:  ${usd(after.remaining)} USDCe`)
 } catch (error) {
   const msg = error instanceof Error ? error.message : String(error)
-  // The node explains keychain rejections in the "Details:" line, e.g. SpendingLimitExceeded.
-  const keychain = /Account keychain error: (\w+)/.exec(msg)?.[1]
+  // The node explains keychain rejections in the "Details:" line, either at execution
+  // ("Account keychain error: SpendingLimitExceeded") or at submission
+  // ("AccountKeychainError(KeyAlreadyRevoked(...))").
+  const keychain = /Account keychain error: (\w+)|AccountKeychainError\((\w+)/.exec(msg)?.slice(1).find(Boolean)
   console.log(keychain ? `BLOCKED by the guard: ${keychain}` : `FAILED: ${msg.split('\n')[0]}`)
   process.exitCode = 2
 }
