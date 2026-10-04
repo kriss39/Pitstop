@@ -36,6 +36,7 @@ export {
   authorizeAgentKey,
   DAY_SECONDS,
   generateAccessKey,
+  getAgentKeyRecipients,
   getAgentKeyStatus,
   revokeAgentKey,
   pickFeeToken,

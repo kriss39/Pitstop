@@ -2,12 +2,13 @@ import {
   createWalletClient,
   erc20Abi,
   type Account as ViemAccount,
+  getAddress,
   type Address,
   type Hex,
   type PublicClient,
 } from 'viem'
 import { tempo } from 'viem/chains'
-import { Account, Actions, P256 } from 'viem/tempo'
+import { Abis, Account, Actions, Addresses, P256, Scopes } from 'viem/tempo'
 import { createTempoClient, tempoTransport } from './client.js'
 import type { TokenBalance } from './balance.js'
 import { FUEL_TOKENS, TEMPO_TOKENS } from './tokens.js'
@@ -75,16 +76,26 @@ export type AuthorizeAgentKeyParameters = {
   expiry: number
   /** Token the owner pays the Tempo fee in (see `pickFeeToken`). Defaults to USDCe. */
   feeToken?: Address
+  /**
+   * If set, the key may only pay these addresses (MPP service payees). Tempo enforces it
+   * (TIP-1011): a transfer to anyone else reverts. Leave unset to allow any recipient.
+   */
+  recipients?: Address[]
   client?: PublicClient
 }
 
 /** Owner signs once: the agent key may spend up to `limit` of `token` per period until `expiry`. */
 export async function authorizeAgentKey(params: AuthorizeAgentKeyParameters): Promise<Hex> {
   const { owner, key, limit, token = TEMPO_TOKENS.USDCe, periodSeconds = DAY_SECONDS, expiry } = params
+  // MPP pays with transferWithMemo; plain transfer is allowed to the same recipients.
+  const scopes = params.recipients?.length
+    ? [Scopes.tip20(token).transferWithMemo({ recipients: params.recipients }), Scopes.tip20(token).transfer({ recipients: params.recipients })]
+    : undefined
   const hash = await Actions.accessKey.authorize(walletClient(owner, params.feeToken), {
     accessKey: { address: key.address, type: key.type },
     expiry,
     limits: [{ token, limit, period: periodSeconds }],
+    ...(scopes ? { scopes } : {}),
   } as never)
   await waitOk(hash, params.client)
   return hash
@@ -121,6 +132,24 @@ export type AgentKeyStatus = {
   remaining: bigint
   /** Unix seconds when the current period's limit resets, if known. */
   periodEnd?: number
+}
+
+/**
+ * The addresses an authorized key may pay, or undefined if it may pay anyone.
+ * (A key that was never authorized also reads as "scoped, nobody"; check `getAgentKeyStatus` first.)
+ */
+export async function getAgentKeyRecipients(params: { wallet: Address; key: Address; client?: PublicClient }): Promise<Address[] | undefined> {
+  const client = params.client ?? createTempoClient()
+  const [isScoped, scopes] = (await client.readContract({
+    address: Addresses.accountKeychain,
+    abi: Abis.accountKeychain,
+    functionName: 'getAllowedCalls',
+    args: [params.wallet, params.key],
+  })) as readonly [boolean, readonly { target: Address; selectorRules: readonly { selector: Hex; recipients: readonly Address[] }[] }[]]
+  if (!isScoped) return undefined
+  const out = new Set<Address>()
+  for (const scope of scopes) for (const rule of scope.selectorRules) for (const r of rule.recipients) out.add(getAddress(r))
+  return [...out]
 }
 
 /** Reads a key's on-chain state for `wallet`. `authorized` is false for keys never authorized. */

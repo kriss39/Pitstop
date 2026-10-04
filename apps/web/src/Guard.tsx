@@ -3,6 +3,7 @@ import {
   DAY_SECONDS,
   FUEL_TOKENS,
   generateAccessKey,
+  getAgentKeyRecipients,
   pickFeeToken,
   revokeAgentKey,
   TEMPO_TOKENS,
@@ -11,6 +12,7 @@ import {
   type GeneratedAccessKey,
 } from '@pitstop/sdk'
 import { useEffect, useMemo, useState } from 'react'
+import { SERVICES } from './services'
 import { isAddress, parseUnits, type Address, type Hex } from 'viem'
 import { Account, WebAuthnP256 } from 'viem/tempo'
 import {
@@ -34,6 +36,10 @@ import {
 
 const txLink = (hash: Hex) => `https://explore.tempo.xyz/tx/${hash}`
 const EXPIRY_DAYS = ['1', '7', '30', '90', '365']
+/** Services ticked by default when the owner limits who the agent may pay. */
+const DEFAULT_PAYEES = ['Nansen', 'Codex', 'Tempo MPP gateway']
+const SERVICE_LIST = Object.entries(SERVICES).map(([address, s]) => ({ address, ...s }))
+const nameOf = (a: string) => SERVICES[a.toLowerCase()]?.name
 const keyFromLink = new URLSearchParams(window.location.search).get('key')
 
 /** Saves text as a file in the browser's downloads. */
@@ -92,6 +98,25 @@ export function Guard() {
   const active = status?.authorized && !status.revoked && !expired
   // A revoked or expired key can't be used again; the owner needs a new one.
   const deadKey = !!status?.revoked || expired
+
+  // Who the key may pay: anyone, or only the ticked services (Tempo enforces it on-chain).
+  const [onlyPicked, setOnlyPicked] = useState(false)
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(SERVICE_LIST.filter((s) => DEFAULT_PAYEES.includes(s.name)).map((s) => s.address)))
+  const [extraPayee, setExtraPayee] = useState('')
+  const recipients = onlyPicked ? [...picked, ...(isAddress(extraPayee) ? [extraPayee.toLowerCase()] : [])].map((a) => a as Address) : undefined
+  const [currentPayees, setCurrentPayees] = useState<Address[] | null>()
+  useEffect(() => {
+    setCurrentPayees(undefined)
+    if (!active || !wallet || !keyOk) return
+    let live = true
+    getAgentKeyRecipients({ wallet, key: keyAddr as Address }).then(
+      (r) => live && setCurrentPayees(r ?? null),
+      () => {},
+    )
+    return () => {
+      live = false
+    }
+  }, [active, wallet, keyAddr, keyOk, done])
 
   async function run(fn: () => Promise<void>) {
     setBusy(true)
@@ -169,6 +194,7 @@ export function Guard() {
         key: { address: keyAddr as Address, type: 'p256' },
         token: TEMPO_TOKENS[token],
         limit: parseUnits(limit, 6),
+        recipients,
         expiry: Math.floor(Date.now() / 1000) + daysNum * DAY_SECONDS,
       })
       savedKey.set(keyAddr, wallet!)
@@ -217,6 +243,8 @@ export function Guard() {
           ? { label: expired ? 'This key expired' : 'This key is revoked', disabled: true }
           : !limitOk
             ? { label: 'Enter a daily limit', disabled: true }
+            : !active && recipients && recipients.length === 0
+              ? { label: 'Pick at least one service', disabled: true }
             : madeHere && !keySaved && !active
               ? { label: 'Give the key to your agent first', disabled: true }
             : !active
@@ -413,6 +441,61 @@ export function Guard() {
               <span className="swap-sub">
                 {active ? `Scoped to ${token}. Tempo fees count toward the limit.` : `per day, in ${token} only. Tempo fees count too, so leave a little room.`}
               </span>
+            </div>
+
+            <div className="swap-box">
+              <div className="swap-top">
+                <span className="swap-label">Who can it pay?</span>
+                {!active && (
+                  <div className="seg small-seg" role="radiogroup" aria-label="Who the agent may pay">
+                    <button role="radio" aria-checked={!onlyPicked} onClick={() => setOnlyPicked(false)}>Any service</button>
+                    <button role="radio" aria-checked={onlyPicked} onClick={() => setOnlyPicked(true)}>Only these</button>
+                  </div>
+                )}
+              </div>
+              {active ? (
+                <p className="swap-text small">
+                  {currentPayees === undefined
+                    ? 'Reading from Tempo…'
+                    : currentPayees === null
+                      ? 'Any service. To limit it, authorize a new key with “Only these”.'
+                      : `Only: ${currentPayees.map((a) => nameOf(a) ?? short(a)).join(', ')}. Tempo refuses payments to anyone else.`}
+                </p>
+              ) : !onlyPicked ? (
+                <p className="swap-text small">The agent can pay any address, up to its daily limit.</p>
+              ) : (
+                <>
+                  <p className="swap-text small">Tempo will refuse a payment to anyone not ticked, even within the limit.</p>
+                  <div className="payees">
+                    {SERVICE_LIST.map((s) => (
+                      <label key={s.address} className="check payee" title={s.note}>
+                        <input
+                          type="checkbox"
+                          checked={picked.has(s.address)}
+                          onChange={(e) =>
+                            setPicked((prev) => {
+                              const next = new Set(prev)
+                              if (e.target.checked) next.add(s.address)
+                              else next.delete(s.address)
+                              return next
+                            })
+                          }
+                        />
+                        {s.name}
+                      </label>
+                    ))}
+                  </div>
+                  <input
+                    className="swap-agent"
+                    value={extraPayee}
+                    onChange={(e) => setExtraPayee(e.target.value.trim())}
+                    placeholder="Another payee address (optional, 0x…)"
+                    spellCheck={false}
+                    aria-label="Another payee address"
+                  />
+                  {extraPayee !== '' && !isAddress(extraPayee) && <small className="note bad">That isn’t a valid 0x address.</small>}
+                </>
+              )}
             </div>
           </>
         )}

@@ -54,7 +54,7 @@ Every transfer routed through Pitstop is counted live, with our own tests marked
 ```
 
 1. **Fuel.** Pay with USDC or the chain's own token (ETH, POL, AVAX, SOL) from Base, Solana, Ethereum, Arbitrum, Optimism, Polygon, Avalanche or Arc. The agent receives USDC.e (or PathUSD, USDT0, OUSD) on Tempo. Every cost is itemized before you sign: Pitstop 0.1%, LI.FI 0.25%, the bridge and gas.
-2. **Guard.** The agent's wallet is a Tempo passkey account. The owner authorizes the agent's P256 access key with Tempo's Account Keychain: a daily limit in one token, and an end date. The owner can change the limit or revoke the key at any time; the agent can do neither.
+2. **Guard.** The agent's wallet is a Tempo passkey account. The owner authorizes the agent's P256 access key with Tempo's Account Keychain: a daily limit in one token, an end date and, optionally, the only services it may pay (Tempo's recipient scopes, TIP-1011). The owner can change the limit or revoke the key at any time; the agent can do neither.
 3. **Pay.** The agent pays MPP services with `mppx`, signing with its access key. Each payment, and its network fee, counts against the limit. Over the limit, Tempo rejects the payment before it reaches the chain.
 4. **Refill.** When the agent's balance drops below a threshold, it tops itself up from a small "home wallet" on Base, with a daily cap and a cooldown.
 5. **Watch.** The dashboard shows what's left today, every payment and which service it went to. A Cloudflare cron checks watched agents every minute and messages the owner on Telegram when fuel is low, the limit is used up, or the key is revoked or expires.

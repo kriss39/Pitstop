@@ -198,13 +198,14 @@ export function Docs() {
           </Section>
 
           <Section id="guard" title="Set a limit">
-            <p>The owner passkey controls three things on the agent’s key:</p>
+            <p>The owner passkey controls these on the agent’s key:</p>
             <div className="table-wrap"><table className="doc-table">
               <thead><tr><th>Control</th><th>What it does</th></tr></thead>
               <tbody>
                 <tr><td>Daily limit</td><td>The most the agent can spend in 24 hours, in that stablecoin. Tempo fees paid in it count too.</td></tr>
                 <tr><td>Scope</td><td>The one stablecoin the key may spend: USDC.e, PathUSD, USDT0 or OUSD. Pick the one your agent’s services charge in.</td></tr>
                 <tr><td>Expiry</td><td>After this date the key stops working on its own.</td></tr>
+                <tr><td>Who it can pay</td><td>Optional: only the services you tick (Nansen, Codex, the Tempo MPP gateway…). Tempo refuses a payment to anyone else, even within the limit.</td></tr>
               </tbody>
             </table></div>
             <ul className="doc-list">
