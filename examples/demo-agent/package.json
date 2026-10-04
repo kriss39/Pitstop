@@ -13,10 +13,13 @@
     "spend": "tsx --env-file-if-exists=../../.env src/spend.ts",
     "home-wallet": "tsx --env-file-if-exists=../../.env src/home.ts",
     "refill": "tsx --env-file-if-exists=../../.env src/refill.ts",
-    "watch": "tsx --env-file-if-exists=../../.env src/watch.ts"
+    "watch": "tsx --env-file-if-exists=../../.env src/watch.ts",
+    "nansen": "tsx --env-file-if-exists=../../.env src/nansen.ts",
+    "demo": "tsx --env-file-if-exists=../../.env src/demo.ts"
   },
   "dependencies": {
     "@pitstop/sdk": "workspace:*",
+    "mppx": "^0.13.1",
     "viem": "^2.57.2"
   },
   "devDependencies": {
