@@ -1,4 +1,4 @@
-import { CONTACT_EMAIL, X_HANDLE, X_URL } from './ui'
+import { CONTACT_EMAIL, X_HANDLE, X_URL } from './basics'
 
 /** Site-wide footer: a help and feedback line, then the page links. */
 export function Footer() {

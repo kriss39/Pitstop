@@ -1,15 +1,17 @@
-import { StrictMode } from 'react'
+import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Dashboard } from './Dashboard'
-import { Docs } from './Docs'
 import { ErrorBoundary } from './ErrorBoundary'
 import { Footer } from './Footer'
-import { Fuel } from './Fuel'
-import { Guard } from './Guard'
 import { Header } from './Header'
 import './index.css'
 import { Landing } from './Landing'
-import { StatsPage } from './Stats'
+
+// Each page loads its own code when opened, so the landing page stays light.
+const Dashboard = lazy(() => import('./Dashboard').then((m) => ({ default: m.Dashboard })))
+const Docs = lazy(() => import('./Docs').then((m) => ({ default: m.Docs })))
+const Fuel = lazy(() => import('./Fuel').then((m) => ({ default: m.Fuel })))
+const Guard = lazy(() => import('./Guard').then((m) => ({ default: m.Guard })))
+const StatsPage = lazy(() => import('./Stats').then((m) => ({ default: m.StatsPage })))
 import { WalletProvider } from './wallet'
 
 const path = window.location.pathname
@@ -40,7 +42,9 @@ createRoot(document.getElementById('root')!).render(
     <WalletProvider>
       <Header path={path === '/' && search.has('to') ? '/fuel' : path} />
       <ErrorBoundary>
-        <Page />
+        <Suspense fallback={<main className="page" aria-busy="true" />}>
+          <Page />
+        </Suspense>
       </ErrorBoundary>
       <Footer />
     </WalletProvider>

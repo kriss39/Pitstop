@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { BOT_HANDLE, CopyButton, FlagChip, FuelCells } from './ui'
+import { BOT_HANDLE, CopyButton, FlagChip, FuelCells } from './basics'
 
 /** The real mainnet demo, replayed: 4 Nansen calls at $0.01, the 5th refused by Tempo. */
 const CALLS = ['USDC', 'WETH', 'LINK', 'UNI', 'AAVE']

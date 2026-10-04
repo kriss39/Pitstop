@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { X_HANDLE, X_URL } from './ui'
+import { X_HANDLE, X_URL } from './basics'
 import { CHAIN_NAMES, shortAddress, switchToBase, useWallet, walletLabel } from './wallet'
 
 const LINKS = [
