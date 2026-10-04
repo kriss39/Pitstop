@@ -18,3 +18,5 @@ dist/
 
 # Personal Claude Code settings
 .claude/settings.local.json
+# Machine-specific MCP config (absolute paths)
+.mcp.json
