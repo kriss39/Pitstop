@@ -225,7 +225,7 @@ Reports on the Desktop:
 | 2026-10-04 | Deployed Worker `pitstop` (web + `/lifi` proxy + `/api`), D1 `pitstop` (WEUR), secret `LIFI_API_KEY`; registered agent `0x0f7b…92fA` | Live checks pass: quote, status, 404 on other LI.FI paths, registry write/read, balance |
 | 2026-10-04 | First fuel: 2 USDC Base → agent `0x0f7b…92fA` on Tempo, signed in Rabby from `apps/web` | DONE via Across in the same block second. Received 1.994511 USDCe (matches quote). Fees $0.0055 + gas $0.0029. Approval was exact; leftover allowance 0. Source tx `0x53d3dda1b3309d2888cea5c352d0ab9f2120556990286b2e1ef11a33f9a9f9a2`, Tempo tx `0x1e7a98d7de4ceacf5657114612531b84e91f216fca40013e95c24288f7497800` |
 
-**Day 1 decisions:** LI.FI REST `/quote` + `/status` instead of `@lifi/sdk` (single-step routes need nothing more). `fuelQuote()` rejects routes that don't end at the agent address on Tempo or don't call the LI.FI Diamond `0x1231…4EaE`. The browser never sees the LI.FI key: the Vite dev server proxies `/lifi` and adds it (the Worker does this in production from Day 2). Web cap: 5 USDC per transfer while testing.
+**Day 1 decisions:** LI.FI REST `/quote` + `/status` instead of `@lifi/sdk` (single-step routes need nothing more). `fuelQuote()` rejects routes that don't end at the agent address on Tempo or don't call the LI.FI Diamond `0x1231…4EaE`. The browser never sees the LI.FI key: the Vite dev server proxies `/lifi` and adds it (the Worker does this in production from Day 2). Web cap: 5 USDC per transfer while testing (replaced on 2026-10-04 by a $5 minimum and no maximum).
 
 ## 14. Day 6 decisions (2026-10-04)
 

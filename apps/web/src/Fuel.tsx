@@ -30,8 +30,8 @@ import { Account } from 'viem/tempo'
 import { savedOwner, short, usd, useAgent } from './ui'
 import { openConnect, switchChain, useWallet } from './wallet'
 
-/** Per-transfer cap on the web app, in dollars. */
-const MAX_USD = 5
+/** Smallest transfer the web app sends, in dollars. Below it, fixed bridge and gas costs eat too much of the amount. */
+const MIN_USD = 5
 /** Route cost (value lost between send and arrival) that triggers a warning, and that blocks the transfer. */
 const COST_WARN = 0.03
 const COST_BLOCK = 0.1
@@ -96,7 +96,7 @@ const grouped = (n: number, dp: number) => n.toLocaleString('en-US', { minimumFr
 export function Fuel() {
   const w = useWallet()
   const [agent, setAgent] = useState(params.get('to') ?? ownerWallet ?? __DEFAULT_AGENT__)
-  const [amount, setAmount] = useState('2')
+  const [amount, setAmount] = useState(String(MIN_USD))
   const [source, setSource] = useState<Source>(() => {
     const f = params.get('from') as Source | null
     return f && f in SOURCES ? f : 'base'
@@ -122,8 +122,8 @@ export function Fuel() {
   const agentOk = isAddress(agent)
   const target = useAgent(agentOk ? agent : undefined)
   const amountNum = Number(amount)
-  // USDC is capped before quoting; gas tokens are checked against MAX_USD once the quote prices them.
-  const amountOk = Number.isFinite(amountNum) && amountNum > 0 && (useNative || amountNum <= MAX_USD)
+  // USDC is checked against the minimum before quoting; gas tokens once the quote prices them.
+  const amountOk = Number.isFinite(amountNum) && amountNum > 0 && (useNative || amountNum >= MIN_USD)
   const fromAmount = useMemo(() => (amountOk ? parseUnits(amount, pay.decimals) : 0n), [amount, amountOk, pay.decimals])
   const isEvm = !!src.chain
   const sender = isEvm ? w.evm?.account : w.solana?.address
@@ -131,7 +131,7 @@ export function Fuel() {
   const ready = isEvm ? !!w.evm && onChain : !!w.solana
   const enoughFunds = !isEvm || (srcBalance != null && srcBalance >= fromAmount)
   const routeCost = quote?.fromAmountUSD && quote.toAmountUSD ? 1 - quote.toAmountUSD / quote.fromAmountUSD : undefined
-  const overCap = quote?.fromAmountUSD != null && quote.fromAmountUSD > MAX_USD * 1.01
+  const underMin = useNative && quote?.fromAmountUSD != null && quote.fromAmountUSD < MIN_USD * 0.99
   const tooCostly = routeCost != null && routeCost > COST_BLOCK
 
   useEffect(() => {
@@ -211,7 +211,7 @@ export function Fuel() {
       // Always sign a fresh quote for the real sender, and re-check it first.
       const q = await newQuote(sender!)
       setQuote(q)
-      if (q.fromAmountUSD != null && q.fromAmountUSD > MAX_USD * 1.01) throw new Error(`Over the $${MAX_USD} per-transfer cap.`)
+      if (useNative && q.fromAmountUSD != null && q.fromAmountUSD < MIN_USD * 0.99) throw new Error(`The minimum is $${MIN_USD} per transfer.`)
       if (q.fromAmountUSD && q.toAmountUSD && 1 - q.toAmountUSD / q.fromAmountUSD > COST_BLOCK)
         throw new Error('This route got too expensive. Try another chain or token.')
       const tx = q.transactionRequest
@@ -286,8 +286,8 @@ export function Fuel() {
   const cta =
     agent === '' ? { label: 'No agent wallet yet? Create one', onClick: () => window.location.assign('/guard') }
     : !agentOk ? { label: 'Enter the agent’s address', disabled: true }
-    : !amountOk ? { label: useNative || amountNum <= MAX_USD ? 'Enter an amount' : `Over the $${MAX_USD} cap`, disabled: true }
-    : overCap ? { label: `Over the $${MAX_USD} cap`, disabled: true }
+    : !amountOk ? { label: amountNum > 0 ? `Minimum $${MIN_USD}` : 'Enter an amount', disabled: true }
+    : underMin ? { label: `Minimum $${MIN_USD}`, disabled: true }
     : tooCostly ? { label: 'Route too expensive', disabled: true }
     : !sender ? { label: isEvm ? 'Connect wallet' : 'Connect a Solana wallet', onClick: () => openConnect(isEvm ? 'base' : 'solana') }
     : isEvm && !onChain ? { label: `Switch to ${src.label}`, onClick: () => run(() => switchChain(w.evm!.wallet.provider, src.chain!)) }
@@ -341,7 +341,7 @@ export function Fuel() {
             </div>
           </div>
           <span className="swap-sub">
-            {quote?.fromAmountUSD != null ? `≈ $${grouped(quote.fromAmountUSD, 2)}` : useNative ? `Worth up to $${MAX_USD}` : `Up to $${MAX_USD} per transfer`}
+            {quote?.fromAmountUSD != null ? `≈ $${grouped(quote.fromAmountUSD, 2)}` : `Minimum $${MIN_USD} per transfer`}
           </span>
         </div>
 
@@ -405,9 +405,9 @@ export function Fuel() {
             )}
           </div>
         )}
-        {overCap && (
+        {underMin && (
           <p className="note bad">
-            That’s about ${grouped(quote!.fromAmountUSD!, 2)}. The web app sends up to ${MAX_USD} per transfer.
+            That’s about ${grouped(quote!.fromAmountUSD!, 2)}. The minimum is ${MIN_USD} per transfer.
           </p>
         )}
         {tooCostly && <p className="note bad">This route would lose {(routeCost! * 100).toFixed(0)}% of the value, so Pitstop won’t send it.</p>}
@@ -465,6 +465,8 @@ export function Fuel() {
   )
 }
 
+/** The amount slider's range ends here; any amount can still be typed. */
+const SLIDER_MAX = 200
 const TOOL_NAMES: Record<string, string> = { across: 'Across', relaydepository: 'Relay', relay: 'Relay' }
 const toolName = (t: string) => TOOL_NAMES[t] ?? t.charAt(0).toUpperCase() + t.slice(1)
 const pct = (p?: number) => (p != null && p > 0 ? `${(p * 100).toFixed(p < 0.001 ? 3 : 2)}%` : '')
@@ -525,15 +527,15 @@ function Breakdown({
           <input
             id="bd-range"
             type="range"
-            min={1}
-            max={MAX_USD}
-            step={0.5}
-            value={Math.min(MAX_USD, Math.max(1, amountUsd))}
+            min={MIN_USD}
+            max={SLIDER_MAX}
+            step={5}
+            value={Math.min(SLIDER_MAX, Math.max(MIN_USD, amountUsd))}
             onChange={(e) => onAmount(Number(e.target.value))}
           />
           <div className="bd-chips">
-            {[1, 2, 3, 5].filter((v) => v <= MAX_USD).map((v) => (
-              <button key={v} className={Math.abs(amountUsd - v) < 0.05 ? 'on' : ''} onClick={() => onAmount(v)}>
+            {[5, 10, 25, 50, 100].map((v) => (
+              <button key={v} className={Math.abs(amountUsd - v) < 0.5 ? 'on' : ''} onClick={() => onAmount(v)}>
                 ${v}
               </button>
             ))}

@@ -186,7 +186,7 @@ export function Docs() {
             </table></div>
             <ul className="doc-list">
               <li>Pay with USDC or the gas token (ETH, POL, AVAX, SOL). LI.FI swaps it on the way. On Arc, USDC is the gas token.</li>
-              <li>Up to $5 per transfer on the web app. Approvals are for the exact amount.</li>
+              <li>The web app sends at least $5 per transfer: below that, the fixed bridge and gas costs take too big a share. Approvals are for the exact amount.</li>
               <li>If a route would lose more than 10% of the value, Pitstop won’t send it; above 3% it warns you.</li>
               <li>Fees: a few cents for the bridge, plus a 0.25% Pitstop fee. Every quote shows the total.</li>
               <li>Before you sign, Pitstop checks that the route ends at the agent’s address on Tempo and calls the official LI.FI contract.</li>
