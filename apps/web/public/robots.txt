@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://fuel.pitstopgas.workers.dev/sitemap.xml

@@ -2,13 +2,8 @@ import { FUEL_TOKENS, type FuelTokenSymbol, type Spend } from '@pitstop/sdk'
 import { useMemo, useState } from 'react'
 import { isAddress } from 'viem'
 import { Account } from 'viem/tempo'
+import { serviceAt } from './services'
 import { AddressField, AgentBoard, APP_URL, BOT_HANDLE, CopyButton, PanelHead, savedKey, savedOwner, savedToken, short, usd, useAgent } from './ui'
-
-/** MPP services seen on mainnet, by the address they're paid at. Icons are the services' own app icons. */
-const KNOWN: Record<string, { name: string; icon: string }> = {
-  '0xb83df53f396a4522b5755923fe45018ef07cc92b': { name: 'Nansen', icon: '/services/nansen.png' },
-  '0xc12b5d802da90d14a8b35dec1cfb6fd5ceede60b': { name: 'Codex', icon: '/services/codex.png' },
-}
 
 type Row = { txHash: string; time: number; to: string; amount: bigint; fee: bigint }
 
@@ -27,7 +22,7 @@ function group(spends: Spend[]): Row[] {
   return [...rows.values()].sort((a, b) => b.time - a.time)
 }
 
-const service = (to: string) => KNOWN[to.toLowerCase()]
+const service = serviceAt
 const payee = (to: string) => service(to)?.name
 /** Dollars with enough decimals that sub-cent MPP payments don't show as $0.00. */
 const amt = (v: bigint) => `$${usd(v, v < 100n ? 6 : v < 10_000n ? 4 : 2)}`

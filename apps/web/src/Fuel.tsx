@@ -44,7 +44,6 @@ type SourceInfo = {
   label: string
   chainId: number
   usdc: string
-  ttlMs: number
   chain?: Chain
   explorer?: string
   /** The chain's gas token, if it isn't USDC itself (Arc's gas token is USDC). */
@@ -54,15 +53,14 @@ type SourceInfo = {
 const ETH = { symbol: 'ETH', decimals: 18 }
 // Every route below was quoted to Tempo through LI.FI on 2026-10-04.
 const SOURCES: Record<Source, SourceInfo> = {
-  base: { label: 'Base', chainId: base.id, usdc: SOURCE_TOKENS.base.USDC, ttlMs: 60_000, chain: base, explorer: 'https://basescan.org', native: ETH },
-  arbitrum: { label: 'Arbitrum', chainId: arbitrum.id, usdc: SOURCE_TOKENS.arbitrum.USDC, ttlMs: 60_000, chain: arbitrum, explorer: 'https://arbiscan.io', native: ETH },
-  optimism: { label: 'Optimism', chainId: optimism.id, usdc: SOURCE_TOKENS.optimism.USDC, ttlMs: 60_000, chain: optimism, explorer: 'https://optimistic.etherscan.io', native: ETH },
-  ethereum: { label: 'Ethereum', chainId: mainnet.id, usdc: SOURCE_TOKENS.ethereum.USDC, ttlMs: 60_000, chain: mainnet, explorer: 'https://etherscan.io', native: ETH },
-  polygon: { label: 'Polygon', chainId: polygon.id, usdc: SOURCE_TOKENS.polygon.USDC, ttlMs: 60_000, chain: polygon, explorer: 'https://polygonscan.com', native: { symbol: 'POL', decimals: 18 } },
-  avalanche: { label: 'Avalanche', chainId: avalanche.id, usdc: SOURCE_TOKENS.avalanche.USDC, ttlMs: 60_000, chain: avalanche, explorer: 'https://snowtrace.io', native: { symbol: 'AVAX', decimals: 18 } },
-  arc: { label: 'Arc', chainId: arc.id, usdc: SOURCE_TOKENS.arc.USDC, ttlMs: 60_000, chain: arc, explorer: 'https://explorer.arc.io' },
-  // A Solana transaction carries a recent blockhash that expires in about a minute.
-  solana: { label: 'Solana', chainId: SOLANA_CHAIN_ID, usdc: SOURCE_TOKENS.solana.USDC, ttlMs: 25_000, native: { symbol: 'SOL', decimals: 9 } },
+  base: { label: 'Base', chainId: base.id, usdc: SOURCE_TOKENS.base.USDC, chain: base, explorer: 'https://basescan.org', native: ETH },
+  arbitrum: { label: 'Arbitrum', chainId: arbitrum.id, usdc: SOURCE_TOKENS.arbitrum.USDC, chain: arbitrum, explorer: 'https://arbiscan.io', native: ETH },
+  optimism: { label: 'Optimism', chainId: optimism.id, usdc: SOURCE_TOKENS.optimism.USDC, chain: optimism, explorer: 'https://optimistic.etherscan.io', native: ETH },
+  ethereum: { label: 'Ethereum', chainId: mainnet.id, usdc: SOURCE_TOKENS.ethereum.USDC, chain: mainnet, explorer: 'https://etherscan.io', native: ETH },
+  polygon: { label: 'Polygon', chainId: polygon.id, usdc: SOURCE_TOKENS.polygon.USDC, chain: polygon, explorer: 'https://polygonscan.com', native: { symbol: 'POL', decimals: 18 } },
+  avalanche: { label: 'Avalanche', chainId: avalanche.id, usdc: SOURCE_TOKENS.avalanche.USDC, chain: avalanche, explorer: 'https://snowtrace.io', native: { symbol: 'AVAX', decimals: 18 } },
+  arc: { label: 'Arc', chainId: arc.id, usdc: SOURCE_TOKENS.arc.USDC, chain: arc, explorer: 'https://explorer.arc.io' },
+  solana: { label: 'Solana', chainId: SOLANA_CHAIN_ID, usdc: SOURCE_TOKENS.solana.USDC, native: { symbol: 'SOL', decimals: 9 } },
 }
 const SOURCE_KEYS = Object.keys(SOURCES) as Source[]
 
@@ -164,7 +162,15 @@ export function Fuel() {
       useNative
         ? c.getBalance({ address: w.evm.account })
         : c.readContract({ address: src.usdc as Address, abi: erc20Abi, functionName: 'balanceOf', args: [w.evm.account] })
-    read.then(setSrcBalance, () => setSrcBalance(undefined))
+    // Ignore a late answer for a chain or token the user has already switched away from.
+    let live = true
+    read.then(
+      (b) => live && setSrcBalance(b),
+      () => live && setSrcBalance(undefined),
+    )
+    return () => {
+      live = false
+    }
   }, [w.evm?.account, w.solana?.address, source, useNative, finished])
 
   // Picking an EVM source asks the connected wallet to switch to it.
@@ -410,6 +416,11 @@ export function Fuel() {
               to <code>{short(agent)}</code>
               {target.balance != null && <span className="muted"> · has ${usd(target.balance)}</span>} · change
             </button>
+          )}
+          {agentOk && agent === params.get('to') && !editAgent && (
+            <small className="link-note">
+              Filled from a link. Check it’s your agent: <code>{agent}</code>
+            </small>
           )}
           {agent !== '' && !agentOk && <small className="note bad">That isn’t a valid 0x address.</small>}
           {agent === '' && (

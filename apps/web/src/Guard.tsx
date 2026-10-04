@@ -324,6 +324,11 @@ export function Guard() {
                 {madeHere && <span className="swap-ok">Created in this browser</span>}
               </div>
               <AddressField label="Key" value={keyAddr} onChange={setKeyAddr} placeholder="Agent key address (0x…)" />
+              {keyOk && keyAddr === keyFromLink && !madeHere && (
+                <small className="link-note">
+                  Check this matches what your agent printed: <code>{keyAddr}</code>
+                </small>
+              )}
               {(!keyOk || deadKey) && !madeHere && (
                 <div className="key-paths">
                   <button className="primary small-btn" onClick={createKeyHere} disabled={busy}>Create a key here</button>

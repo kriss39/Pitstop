@@ -13,6 +13,16 @@ import { StatsPage } from './Stats'
 import { WalletProvider } from './wallet'
 
 const path = window.location.pathname
+
+const TITLES: [string, string][] = [
+  ['/fuel', 'Fuel an agent'],
+  ['/guard', 'Agent spending limits'],
+  ['/dashboard', 'Agent dashboard'],
+  ['/docs', 'Docs'],
+  ['/stats', 'Live usage'],
+]
+const title = TITLES.find(([p]) => path.startsWith(p))?.[1]
+if (title) document.title = `${title} · Pitstop`
 const search = new URLSearchParams(window.location.search)
 
 // Older funding links point at /?to=0x…; they still open the fuel page.
