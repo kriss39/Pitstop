@@ -36,9 +36,53 @@ export function Header({ path }: { path: string }) {
             </a>
           ))}
         </nav>
-        <ConnectButton />
+        <div className="top-actions">
+          <ThemeToggle />
+          <ConnectButton />
+        </div>
       </div>
     </header>
+  )
+}
+
+type Theme = 'light' | 'dark'
+const THEME_KEY = 'pitstop.theme'
+const systemTheme = (): Theme => (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+
+/** Day/night switch. Without a saved choice the site follows the device. */
+function ThemeToggle() {
+  const [theme, setTheme] = useState<Theme>(() => (document.documentElement.dataset.theme as Theme | undefined) ?? systemTheme())
+  useEffect(() => {
+    // Follow the device while the visitor hasn't picked a theme.
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)')
+    const onChange = () => !document.documentElement.dataset.theme && setTheme(systemTheme())
+    mq?.addEventListener('change', onChange)
+    return () => mq?.removeEventListener('change', onChange)
+  }, [])
+  const toggle = () => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark'
+    document.documentElement.dataset.theme = next
+    try {
+      localStorage.setItem(THEME_KEY, next)
+    } catch {
+      // Storage blocked: the choice lasts for this page only.
+    }
+    setTheme(next)
+  }
+  const label = theme === 'dark' ? 'Switch to day mode' : 'Switch to night mode'
+  return (
+    <button className="theme-btn" onClick={toggle} aria-label={label} title={label}>
+      {theme === 'dark' ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+          <circle cx="12" cy="12" r="4.5" />
+          <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8" />
+        </svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" />
+        </svg>
+      )}
+    </button>
   )
 }
 

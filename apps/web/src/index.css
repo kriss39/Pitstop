@@ -20,8 +20,9 @@
   --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   color-scheme: light;
 }
+/* Dark theme: follows the device unless the header toggle picked one (data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #0e0e0d;
     --panel: #1a1a18;
     --ink: #f2f0ea;
@@ -33,6 +34,18 @@
     --slab-line: #3a3935;
     color-scheme: dark;
   }
+}
+:root[data-theme='dark'] {
+  --bg: #0e0e0d;
+  --panel: #1a1a18;
+  --ink: #f2f0ea;
+  --muted: #a19e96;
+  --line: #2e2d2a;
+  --ok: #3ddc84;
+  --bad: #ff5a4e;
+  --slab: #000000;
+  --slab-line: #3a3935;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -558,3 +571,9 @@ img.avatar { object-fit: cover; background: none; border: 1px solid var(--line);
 .bd-connect { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; background: var(--bg); border-radius: 12px; }
 .bd-connect span { flex: 1 1 180px; min-width: 0; }
 .bd-connect button { flex: none; }
+
+/* Theme toggle in the header */
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.theme-btn { width: 36px; height: 36px; padding: 0; justify-content: center; border-color: var(--line); border-radius: 4px; color: var(--ink); background: transparent; }
+.theme-btn:hover { border-color: var(--ink); }
+.theme-btn svg { display: block; }

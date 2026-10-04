@@ -6,6 +6,13 @@
     <title>Pitstop</title>
     <meta name="description" content="Fuel AI agents on Tempo from any chain in seconds, and keep them on a daily limit the chain enforces." />
     <meta name="theme-color" content="#0E0E0D" />
+    <script>
+      // Apply the saved light/dark choice before the first paint, so the page doesn't flash.
+      try {
+        const t = localStorage.getItem('pitstop.theme')
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t
+      } catch {}
+    </script>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta property="og:type" content="website" />
