@@ -25,7 +25,8 @@ import {
   type PublicClient,
 } from 'viem'
 import { arbitrum, arc, avalanche, base, mainnet, optimism, polygon, type Chain } from 'viem/chains'
-import { short, usd, useAgent } from './ui'
+import { Account } from 'viem/tempo'
+import { savedOwner, short, usd, useAgent } from './ui'
 import { openConnect, switchChain, useWallet } from './wallet'
 
 /** Per-transfer cap on the web app, in dollars. */
@@ -76,6 +77,15 @@ function clientFor(chain: Chain): PublicClient {
 type Step = { label: string; state: 'todo' | 'active' | 'done' | 'error'; link?: { href: string; text: string }; t?: number }
 
 const params = new URLSearchParams(window.location.search)
+/** The guarded wallet of the owner passkey on this device, so its owner doesn't have to paste it. */
+const ownerWallet = (() => {
+  const o = savedOwner()
+  try {
+    return o ? Account.fromWebAuthnP256(o).address : undefined
+  } catch {
+    return undefined
+  }
+})()
 const fromBase64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0))
 const secs = (ms: number) => `${(ms / 1000).toFixed(1)} s`
 /** A number with thousands separators and a fixed number of decimals. */
@@ -83,7 +93,7 @@ const grouped = (n: number, dp: number) => n.toLocaleString('en-US', { minimumFr
 
 export function Fuel() {
   const w = useWallet()
-  const [agent, setAgent] = useState(params.get('to') ?? __DEFAULT_AGENT__)
+  const [agent, setAgent] = useState(params.get('to') ?? ownerWallet ?? __DEFAULT_AGENT__)
   const [amount, setAmount] = useState('2')
   const [source, setSource] = useState<Source>(() => {
     const f = params.get('from') as Source | null
@@ -267,27 +277,22 @@ export function Fuel() {
   const fmtPay = (v: bigint) => Number(formatUnits(v, pay.decimals)).toFixed(pay.decimals > 6 ? 5 : 2)
 
   // One button, whose job depends on what's missing. Problems with the transfer itself come before the wallet.
-  const cta = !agentOk
-    ? { label: 'Enter the agent’s address', disabled: true }
-    : !amountOk
-      ? { label: useNative || amountNum <= MAX_USD ? 'Enter an amount' : `Over the $${MAX_USD} cap`, disabled: true }
-      : overCap
-        ? { label: `Over the $${MAX_USD} cap`, disabled: true }
-        : tooCostly
-          ? { label: 'Route too expensive', disabled: true }
-          : !sender
-            ? { label: isEvm ? 'Connect wallet' : 'Connect a Solana wallet', onClick: () => openConnect(isEvm ? 'base' : 'solana') }
-            : isEvm && !onChain
-              ? { label: `Switch to ${src.label}`, onClick: () => run(() => switchChain(w.evm!.wallet.provider, src.chain!)) }
-              : !enoughFunds
-                ? { label: `Not enough ${pay.symbol} on ${src.label}`, disabled: true }
-                : { label: quoting || !quote ? 'Getting the best route…' : 'Fuel agent', onClick: fuel, disabled: quoting || !quote }
+  const cta =
+    agent === '' ? { label: 'No agent wallet yet? Create one', onClick: () => window.location.assign('/guard') }
+    : !agentOk ? { label: 'Enter the agent’s address', disabled: true }
+    : !amountOk ? { label: useNative || amountNum <= MAX_USD ? 'Enter an amount' : `Over the $${MAX_USD} cap`, disabled: true }
+    : overCap ? { label: `Over the $${MAX_USD} cap`, disabled: true }
+    : tooCostly ? { label: 'Route too expensive', disabled: true }
+    : !sender ? { label: isEvm ? 'Connect wallet' : 'Connect a Solana wallet', onClick: () => openConnect(isEvm ? 'base' : 'solana') }
+    : isEvm && !onChain ? { label: `Switch to ${src.label}`, onClick: () => run(() => switchChain(w.evm!.wallet.provider, src.chain!)) }
+    : !enoughFunds ? { label: `Not enough ${pay.symbol} on ${src.label}`, disabled: true }
+    : { label: quoting || !quote ? 'Getting the best route…' : 'Fuel agent', onClick: fuel, disabled: quoting || !quote }
 
   return (
     <main className="page fuel-page">
       <header className="rise fuel-head">
         <h1 className="title">Refuel an agent</h1>
-        <p className="lede">Any of eight chains in, stablecoins out on Tempo, in seconds.</p>
+        <p className="lede">Pay from any chain. It lands on Tempo in seconds.</p>
       </header>
 
       <section className="swap rise d1" aria-label="Fuel">
@@ -317,6 +322,7 @@ export function Fuel() {
                   {SOURCE_KEYS.map((k) => (
                     <option key={k} value={k}>{SOURCES[k].label}</option>
                   ))}
+                  <option disabled>More soon…</option>
                 </select>
               </label>
               <label className="chip-select">
@@ -368,6 +374,11 @@ export function Fuel() {
             </button>
           )}
           {agent !== '' && !agentOk && <small className="note bad">That isn’t a valid 0x address.</small>}
+          {agent === '' && (
+            <p className="swap-text small">
+              Paste the agent’s Tempo wallet, or <a href="/guard">create one on Guard</a> with a passkey. It takes a minute.
+            </p>
+          )}
         </div>
 
         {(quote || quoteError) && (

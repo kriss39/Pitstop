@@ -128,7 +128,7 @@ export function Docs() {
             </p>
             <div className="doc-flow">
               {[
-                ['Fuel', 'USDC from 8 chains'],
+                ['Fuel', 'USDC from any major chain'],
                 ['Guard', 'Your passkey sets a daily limit'],
                 ['Pay', 'The agent pays APIs per call'],
                 ['Refill', 'It tops itself up when low'],
@@ -170,7 +170,7 @@ export function Docs() {
           </Section>
 
           <Section id="fuel" title="Fuel an agent">
-            <p>Send USDC, or the chain’s own gas token, from any of the eight chains below. The agent receives one of four stablecoins on Tempo: USDC.e (default), PathUSD, USDT0 or OUSD.</p>
+            <p>Send USDC, or the chain’s own gas token, from any of the chains below, with more on the way. The agent receives one of four stablecoins on Tempo: USDC.e (default), PathUSD, USDT0 or OUSD.</p>
             <div className="table-wrap"><table className="doc-table">
               <thead><tr><th>From</th><th>Wallets</th><th>Typical time</th><th>Route</th></tr></thead>
               <tbody>

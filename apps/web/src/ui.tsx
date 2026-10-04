@@ -43,11 +43,11 @@ export function FuelCells({ total, left }: { total: number; left: number }) {
   )
 }
 
-export function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
+export function CopyButton({ text, label = 'Copy', className = 'ghost small-btn' }: { text: string; label?: string; className?: string }) {
   const [copied, setCopied] = useState(false)
   return (
     <button
-      className="ghost small-btn"
+      className={className}
       onClick={() => {
         navigator.clipboard.writeText(text).then(
           () => {
@@ -71,6 +71,30 @@ export function PanelHead({ num, title, children }: { num?: string; title: strin
       {children && <span className="spacer" />}
       {children}
     </div>
+  )
+}
+
+/** An address shown as a short chip; clicking "change" turns it back into an input. */
+export function AddressField({ label, value, onChange, placeholder = '0x…' }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const ok = isAddress(value)
+  const [edit, setEdit] = useState(!ok)
+  if (edit || !ok)
+    return (
+      <input
+        className="swap-agent"
+        value={value}
+        onChange={(e) => onChange(e.target.value.trim())}
+        onBlur={() => isAddress(value) && setEdit(false)}
+        spellCheck={false}
+        placeholder={placeholder}
+        aria-label={label}
+        autoFocus={edit && ok}
+      />
+    )
+  return (
+    <button className="link-btn agent-chip" onClick={() => setEdit(true)} title={`Change ${label.toLowerCase()}`}>
+      {label} <code>{short(value)}</code> · change
+    </button>
   )
 }
 

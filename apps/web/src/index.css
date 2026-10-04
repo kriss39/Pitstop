@@ -407,3 +407,21 @@ input, textarea { border-radius: 6px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Guard and Dashboard in the swap-card style */
+.swap-ok { font: 600 12px/1 var(--body); color: var(--ok); }
+.swap-text { margin: 0; font-size: 14px; color: var(--muted); }
+.swap-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 14px; color: var(--muted); }
+.swap-line code { color: var(--ink); }
+.swap-line a.link-btn { text-decoration: none; }
+.swap-alt { display: flex; justify-content: center; }
+.danger-link { color: var(--bad); }
+.danger-link:hover { color: var(--bad); text-decoration: underline; }
+.swap textarea { width: 100%; }
+.next-step .swap-box { gap: 12px; }
+.dash-head { display: flex; flex-direction: column; gap: 14px; }
+.dash-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.dash-bar .swap-agent { width: auto; min-width: 0; flex: 1 1 260px; }
+.dash .panel > .swap-label { margin-bottom: -6px; }
+details.panel > summary { color: var(--ink); font-weight: 600; font-size: 15px; }
+a.btn.swap-cta { text-decoration: none; }
