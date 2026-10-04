@@ -222,7 +222,10 @@ export function Docs() {
           </Section>
 
           <Section id="agent" title="Set up the agent">
-            <p>From <code>examples/demo-agent</code> in the repo, after <code>pnpm install && pnpm build</code>:</p>
+            <p>
+              From <code>examples/demo-agent</code> in the{' '}
+              <a href="https://github.com/kriss39/pitstop" target="_blank" rel="noreferrer">repo</a>, after <code>pnpm install && pnpm build</code>:
+            </p>
             <div className="table-wrap"><table className="doc-table">
               <thead><tr><th>Command</th><th>What it does</th></tr></thead>
               <tbody>

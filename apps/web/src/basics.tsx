@@ -18,6 +18,7 @@ export const X_HANDLE = 'pitstop_agents'
 export const CONTACT_EMAIL = 'pitstop.agents@gmail.com'
 
 export const X_URL = `https://x.com/${X_HANDLE}`
+export const REPO_URL = 'https://github.com/kriss39/pitstop'
 
 /** Racing-flag status vocabulary. */
 export type Flag = 'green' | 'yellow' | 'red' | 'black' | 'chequered' | 'none'

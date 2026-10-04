@@ -1,4 +1,4 @@
-import { CONTACT_EMAIL, X_HANDLE, X_URL } from './basics'
+import { CONTACT_EMAIL, REPO_URL, X_HANDLE, X_URL } from './basics'
 
 /** Site-wide footer: a help and feedback line, then the page links. */
 export function Footer() {
@@ -26,6 +26,7 @@ export function Footer() {
           <a href="/docs">Docs</a>
           <a href="/stats">Stats</a>
           <a href={X_URL} target="_blank" rel="noreferrer">X @{X_HANDLE}</a>
+          <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a>
           <a href={`mailto:${CONTACT_EMAIL}`}>Email</a>
         </span>
       </div>
