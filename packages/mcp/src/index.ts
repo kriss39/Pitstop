@@ -22,7 +22,11 @@ import { z } from 'zod'
 const store = keystore()
 const MAX_FUEL = 5
 const GUARD_URL = process.env.PITSTOP_URL ?? 'https://fuel.pitstopgas.workers.dev'
-const lifi = { apiKey: process.env.LIFI_API_KEY, integrator: process.env.LIFI_INTEGRATOR ?? 'pitstop' }
+const lifi = {
+  apiKey: process.env.LIFI_API_KEY,
+  integrator: process.env.LIFI_INTEGRATOR ?? 'pitstop',
+  fee: process.env.PITSTOP_FEE ? Number(process.env.PITSTOP_FEE) : undefined,
+}
 
 const usd = (v: bigint) => formatUnits(v, TIP20_DECIMALS)
 const text = (value: unknown) => ({ content: [{ type: 'text' as const, text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }] })

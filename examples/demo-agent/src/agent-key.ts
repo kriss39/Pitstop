@@ -35,5 +35,6 @@ export function refillConfig(): RefillConfig {
     maxPerDay: usd('REFILL_MAX_PER_DAY', '6'),
     apiKey: process.env.LIFI_API_KEY,
     integrator: process.env.LIFI_INTEGRATOR,
+    fee: process.env.PITSTOP_FEE ? Number(process.env.PITSTOP_FEE) : undefined,
   }
 }

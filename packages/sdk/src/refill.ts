@@ -49,6 +49,8 @@ export type RefillConfig = LifiOptions & {
   cooldownMs?: number
   /** Refuel now regardless of balance and cooldown (the daily cap still applies). */
   force?: boolean
+  /** Optional integrator fee as a decimal (see PITSTOP_FEE). */
+  fee?: number
   baseRpcUrl?: string
 }
 

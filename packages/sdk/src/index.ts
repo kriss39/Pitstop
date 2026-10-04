@@ -10,6 +10,7 @@ export {
   getFuelStatus,
   LIFI_API_URL,
   LIFI_DIAMOND,
+  PITSTOP_FEE,
   LifiError,
   SOLANA_CHAIN_ID,
   SOURCE_TOKENS,
@@ -46,3 +47,5 @@ export {
 export type { HomeWallet, RefillConfig, RefillResult, RefillState } from './refill.js'
 export { listMppServices, MPP_SERVICES_URL } from './mpp.js'
 export type { MppService } from './mpp.js'
+export { getRecentSpends, TEMPO_FEE_MANAGER } from './activity.js'
+export type { Spend } from './activity.js'

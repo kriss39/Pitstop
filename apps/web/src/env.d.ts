@@ -10,6 +10,7 @@ type PhantomSolana = {
   signAndSendTransaction(tx: VersionedTransaction): Promise<{ signature: string }>
   on(event: 'accountChanged', cb: (pk: PhantomPublicKey | null) => void): void
   removeListener?(event: 'accountChanged', cb: (pk: PhantomPublicKey | null) => void): void
+  disconnect?(): Promise<void>
 }
 
 declare global {
