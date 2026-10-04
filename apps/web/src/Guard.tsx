@@ -3,6 +3,7 @@ import {
   DAY_SECONDS,
   FUEL_TOKENS,
   generateAccessKey,
+  pickFeeToken,
   revokeAgentKey,
   TEMPO_TOKENS,
   updateAgentLimit,
@@ -83,7 +84,9 @@ export function Guard() {
   const limitOk = Number.isFinite(limitNum) && limitNum > 0 && limitNum <= 1000
   const daysNum = Number(days)
   const daysOk = Number.isInteger(daysNum) && daysNum >= 1 && daysNum <= 365
-  const hasGas = agent.balance != null && agent.balance > 0n
+  // Tempo fees are paid in a stablecoin the wallet holds (USDCe first, else the largest balance).
+  const feeToken = agent.balances ? pickFeeToken(agent.balances) : undefined
+  const hasGas = !!feeToken
   const expired = !!status?.authorized && !status.revoked && status.expiry * 1000 < Date.now()
   const active = status?.authorized && !status.revoked && !expired
   // A revoked or expired key can't be used again; the owner needs a new one.
@@ -160,6 +163,7 @@ export function Guard() {
   const authorize = () =>
     run(async () => {
       const hash = await authorizeAgentKey({
+        feeToken,
         owner: owner!,
         key: { address: keyAddr as Address, type: 'p256' },
         token: TEMPO_TOKENS[token],
@@ -175,7 +179,7 @@ export function Guard() {
 
   const changeLimit = () =>
     run(async () => {
-      const hash = await updateAgentLimit({ owner: owner!, key: keyAddr as Address, token: TEMPO_TOKENS[token], limit: parseUnits(limit, 6) })
+      const hash = await updateAgentLimit({ owner: owner!, key: keyAddr as Address, token: TEMPO_TOKENS[token], limit: parseUnits(limit, 6), feeToken })
       savedKey.set(keyAddr, wallet!)
       savedLimit.set(keyAddr, parseUnits(limit, 6))
       setDone({ text: `Daily limit set to ${limit} ${token}.`, hash })
@@ -184,7 +188,7 @@ export function Guard() {
 
   const revoke = () =>
     run(async () => {
-      const hash = await revokeAgentKey({ owner: owner!, key: keyAddr as Address })
+      const hash = await revokeAgentKey({ owner: owner!, key: keyAddr as Address, feeToken })
       setDone({ text: 'Key revoked. The agent can no longer spend from this wallet.', hash })
       await agent.refresh()
     })
@@ -204,7 +208,7 @@ export function Guard() {
 
   const cta = !cred
     ? { label: 'Create owner passkey', onClick: createPasskey }
-    : agent.balance != null && !hasGas
+    : agent.balances != null && !hasGas
       ? { label: 'Fuel the wallet first', onClick: () => window.location.assign(`/fuel?to=${wallet}`) }
       : !keyOk
         ? { label: 'Enter the agent key', disabled: true }
@@ -407,7 +411,7 @@ export function Guard() {
         )}
 
         {!limitOk && limit !== '' && <p className="note bad">The daily limit must be between 0 and 1000.</p>}
-        {cred && agent.balance != null && !hasGas && <p className="note warn">The wallet pays Tempo fees in stablecoins. Fuel it with $1–2 first.</p>}
+        {cred && agent.balances != null && !hasGas && <p className="note warn">The wallet pays Tempo fees in stablecoins. Fuel it with $1–2 first.</p>}
 
         <button className="signal-btn swap-cta" onClick={cta.onClick} disabled={busy || cta.disabled}>
           {busy ? 'Waiting for your passkey…' : cta.label}

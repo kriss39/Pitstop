@@ -38,6 +38,7 @@ export {
   generateAccessKey,
   getAgentKeyStatus,
   revokeAgentKey,
+  pickFeeToken,
   tempoWithFees,
   updateAgentLimit,
 } from './guard.js'

@@ -9,10 +9,26 @@ import {
 import { tempo } from 'viem/chains'
 import { Account, Actions, P256 } from 'viem/tempo'
 import { createTempoClient, tempoTransport } from './client.js'
-import { TEMPO_TOKENS } from './tokens.js'
+import type { TokenBalance } from './balance.js'
+import { FUEL_TOKENS, TEMPO_TOKENS } from './tokens.js'
 
-/** Tempo mainnet with fees paid in USDCe, the token Pitstop delivers. */
+/** Tempo mainnet with fees paid in USDCe, the token Pitstop delivers by default. */
 export const tempoWithFees = tempo.extend({ feeToken: TEMPO_TOKENS.USDCe })
+
+/** Enough of a token to cover a Tempo fee (fees are a fraction of a cent). */
+const FEE_FLOOR = 10_000n
+
+/**
+ * Picks the token a wallet should pay Tempo fees in. Every stablecoin Pitstop delivers can pay
+ * fees through Tempo's fee AMM; prefer USDCe, otherwise the largest balance. Undefined if the
+ * wallet can't cover a fee at all.
+ */
+export function pickFeeToken(balances: readonly TokenBalance[]): Address | undefined {
+  const usable = balances.filter((b) => (FUEL_TOKENS as readonly string[]).includes(b.symbol) && b.raw >= FEE_FLOOR)
+  const usdce = usable.find((b) => b.symbol === 'USDCe')
+  const pick = usdce ?? usable.sort((a, b) => (b.raw > a.raw ? 1 : -1))[0]
+  return pick?.token
+}
 
 export const DAY_SECONDS = 86_400
 
@@ -40,8 +56,9 @@ export function agentAccount(privateKey: Hex, wallet: Address) {
   return Account.fromP256(privateKey, { access: wallet })
 }
 
-function walletClient(account: ViemAccount, rpcUrls?: readonly string[]) {
-  return createWalletClient({ account, chain: tempoWithFees, transport: tempoTransport(rpcUrls) })
+function walletClient(account: ViemAccount, feeToken?: Address, rpcUrls?: readonly string[]) {
+  const chain = feeToken ? tempo.extend({ feeToken }) : tempoWithFees
+  return createWalletClient({ account, chain, transport: tempoTransport(rpcUrls) })
 }
 
 export type AuthorizeAgentKeyParameters = {
@@ -56,13 +73,15 @@ export type AuthorizeAgentKeyParameters = {
   periodSeconds?: number
   /** Unix seconds after which the key stops working. */
   expiry: number
+  /** Token the owner pays the Tempo fee in (see `pickFeeToken`). Defaults to USDCe. */
+  feeToken?: Address
   client?: PublicClient
 }
 
 /** Owner signs once: the agent key may spend up to `limit` of `token` per period until `expiry`. */
 export async function authorizeAgentKey(params: AuthorizeAgentKeyParameters): Promise<Hex> {
   const { owner, key, limit, token = TEMPO_TOKENS.USDCe, periodSeconds = DAY_SECONDS, expiry } = params
-  const hash = await Actions.accessKey.authorize(walletClient(owner), {
+  const hash = await Actions.accessKey.authorize(walletClient(owner, params.feeToken), {
     accessKey: { address: key.address, type: key.type },
     expiry,
     limits: [{ token, limit, period: periodSeconds }],
@@ -71,8 +90,8 @@ export async function authorizeAgentKey(params: AuthorizeAgentKeyParameters): Pr
   return hash
 }
 
-export async function revokeAgentKey(params: { owner: ViemAccount; key: Address; client?: PublicClient }): Promise<Hex> {
-  const hash = await Actions.accessKey.revoke(walletClient(params.owner), { accessKey: params.key } as never)
+export async function revokeAgentKey(params: { owner: ViemAccount; key: Address; feeToken?: Address; client?: PublicClient }): Promise<Hex> {
+  const hash = await Actions.accessKey.revoke(walletClient(params.owner, params.feeToken), { accessKey: params.key } as never)
   await waitOk(hash, params.client)
   return hash
 }
@@ -82,9 +101,10 @@ export async function updateAgentLimit(params: {
   key: Address
   limit: bigint
   token?: Address
+  feeToken?: Address
   client?: PublicClient
 }): Promise<Hex> {
-  const hash = await Actions.accessKey.updateLimit(walletClient(params.owner), {
+  const hash = await Actions.accessKey.updateLimit(walletClient(params.owner, params.feeToken), {
     accessKey: params.key,
     token: params.token ?? TEMPO_TOKENS.USDCe,
     limit: params.limit,
@@ -127,7 +147,10 @@ export async function getAgentKeyStatus(params: {
   }
 }
 
-/** Sends a TIP-20 transfer from the agent (through its access key). Fails if it exceeds the key's limit. */
+/**
+ * Sends a TIP-20 transfer from the agent (through its access key). Fails if it exceeds the key's limit.
+ * The fee is paid in the same token, so it counts against the same limit.
+ */
 export async function agentTransfer(params: {
   account: ViemAccount
   to: Address
@@ -135,8 +158,9 @@ export async function agentTransfer(params: {
   token?: Address
   client?: PublicClient
 }): Promise<Hex> {
-  const hash = await walletClient(params.account).writeContract({
-    address: params.token ?? TEMPO_TOKENS.USDCe,
+  const token = params.token ?? TEMPO_TOKENS.USDCe
+  const hash = await walletClient(params.account, token).writeContract({
+    address: token,
     abi: erc20Abi,
     functionName: 'transfer',
     args: [params.to, params.amount],
