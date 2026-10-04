@@ -17,6 +17,7 @@ import {
   AddressField,
   AgentBoard,
   CopyButton,
+  cleanDecimal,
   countdown,
   decimalValue,
   owners,
@@ -378,7 +379,7 @@ export function Guard() {
                   className="swap-amount"
                   inputMode="decimal"
                   value={limit}
-                  onChange={(e) => setLimit(e.target.value.replace(',', '.').trim())}
+                  onChange={(e) => setLimit(cleanDecimal(e.target.value))}
                   placeholder="0"
                   aria-label="Daily limit"
                 />

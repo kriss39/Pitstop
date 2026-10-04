@@ -9,6 +9,7 @@ import { Guard } from './Guard'
 import { Header } from './Header'
 import './index.css'
 import { Landing } from './Landing'
+import { StatsPage } from './Stats'
 import { WalletProvider } from './wallet'
 
 const path = window.location.pathname
@@ -20,6 +21,7 @@ function Page() {
   if (path.startsWith('/guard')) return <Guard />
   if (path.startsWith('/dashboard')) return <Dashboard />
   if (path.startsWith('/docs')) return <Docs />
+  if (path.startsWith('/stats')) return <StatsPage />
   return <Landing />
 }
 

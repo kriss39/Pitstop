@@ -1,6 +1,7 @@
 import { getBalance, LIFI_API_URL, TEMPO_CHAIN_ID, totalUsd } from '@pitstop/sdk'
 import { Hono } from 'hono'
 import { checkAgents, handleTelegramUpdate } from './alerts.js'
+import { getStats } from './stats.js'
 import { isAddress } from 'viem'
 
 type Bindings = {
@@ -91,6 +92,15 @@ app.get('/lifi/v1/:endpoint', async (c) => {
     status: res.status,
     headers: { 'content-type': res.headers.get('content-type') ?? 'application/json', 'cache-control': 'no-store' },
   })
+})
+
+// Public usage numbers for the /stats page (cached for five minutes).
+app.get('/api/stats', async (c) => {
+  try {
+    return c.json(await getStats(c.env.DB, c.env.LIFI_API_KEY), 200, { 'cache-control': 'public, max-age=60' })
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'stats unavailable' }, 502)
+  }
 })
 
 // Telegram bot webhook. Telegram signs each call with the secret set in setWebhook.

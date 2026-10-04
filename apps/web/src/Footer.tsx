@@ -24,6 +24,7 @@ export function Footer() {
           <a href="/guard">Guard</a>
           <a href="/dashboard">Dashboard</a>
           <a href="/docs">Docs</a>
+          <a href="/stats">Stats</a>
           <a href={X_URL} target="_blank" rel="noreferrer">X @{X_HANDLE}</a>
           <a href={`mailto:${CONTACT_EMAIL}`}>Email</a>
         </span>

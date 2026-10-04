@@ -27,7 +27,7 @@ import {
 } from 'viem'
 import { arbitrum, arc, avalanche, base, mainnet, optimism, polygon, type Chain } from 'viem/chains'
 import { Account } from 'viem/tempo'
-import { decimalValue, savedOwner, short, usd, useAgent } from './ui'
+import { cleanDecimal, decimalValue, savedOwner, short, usd, useAgent } from './ui'
 import { solanaBalances } from './solana'
 import { openConnect, switchChain, useWallet } from './wallet'
 
@@ -349,7 +349,7 @@ export function Fuel() {
               className="swap-amount"
               inputMode="decimal"
               value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(',', '.').trim())}
+              onChange={(e) => setAmount(cleanDecimal(e.target.value))}
               placeholder="0"
               aria-label={`Amount in ${pay.symbol}`}
             />

@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         // The browser calls /lifi/v1/...; the dev server adds the API key and forwards to LI.FI.
-        // Solana balances come from the deployed Worker (see apps/api).
-        '/api/solana': { target: 'https://fuel.pitstopgas.workers.dev', changeOrigin: true },
+        // Solana balances and usage stats come from the deployed Worker (see apps/api).
+        '/api': { target: 'https://fuel.pitstopgas.workers.dev', changeOrigin: true },
         '/lifi': {
           target: 'https://li.quest',
           changeOrigin: true,
