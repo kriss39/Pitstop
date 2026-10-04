@@ -75,9 +75,9 @@ function ConnectButton() {
           </button>
         )}
         {w.solana && (
-          <button className="wallet-pill" onClick={() => open('solana')} title="Phantom (Solana)">
-            <span className="chain sol" />
-            {shortAddress(w.solana.account)}
+          <button className="wallet-pill" onClick={() => open('solana')} title={`${w.solana.wallet.name} (Solana)`}>
+            {w.solana.wallet.icon ? <img src={w.solana.wallet.icon} alt="" /> : <span className="chain sol" />}
+            {shortAddress(w.solana.address)}
           </button>
         )}
         {!w.evm && !w.solana && (
@@ -142,25 +142,28 @@ function ConnectButton() {
             )
           ) : w.solana ? (
             <div className="wallet-list">
-              <div className="kv"><span>Wallet</span><span>Phantom</span></div>
-              <div className="kv"><span>Address</span><code>{w.solana.account}</code></div>
+              <div className="kv"><span>Wallet</span><span>{w.solana.wallet.name}</span></div>
+              <div className="kv"><span>Address</span><code>{w.solana.address}</code></div>
               <div className="row">
                 <button className="ghost small-btn" onClick={() => w.disconnect('solana')}>
                   Disconnect
                 </button>
               </div>
             </div>
-          ) : w.hasPhantom ? (
+          ) : w.solWallets.length ? (
             <div className="wallet-list">
-              <button className="wallet-row" onClick={() => run(w.connectSolana)}>
-                <span className="ph" style={{ background: '#ab9ff2' }} />
-                Phantom
-                <span className="tag">solana</span>
-              </button>
+              {w.solWallets.map((info) => (
+                <button key={info.name} className="wallet-row" onClick={() => run(() => w.connectSolana(info))}>
+                  {info.icon ? <img src={info.icon} alt="" /> : <span className="ph" />}
+                  {info.name}
+                  <span className="tag">solana</span>
+                </button>
+              ))}
             </div>
           ) : (
             <p className="muted">
-              No Solana wallet found. Install <a href="https://phantom.com" target="_blank" rel="noreferrer">Phantom</a> and reload.
+              No Solana wallet found. Install <a href="https://phantom.com" target="_blank" rel="noreferrer">Phantom</a> or use{' '}
+              <a href="https://metamask.io" target="_blank" rel="noreferrer">MetaMask</a> with Solana enabled, then reload.
             </p>
           )}
 

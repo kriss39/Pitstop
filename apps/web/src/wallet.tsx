@@ -1,3 +1,5 @@
+import { getWallets } from '@wallet-standard/app'
+import type { Wallet, WalletAccount } from '@wallet-standard/base'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Address, EIP1193Provider } from 'viem'
 
@@ -6,43 +8,92 @@ export type EvmWalletInfo = { uuid: string; name: string; icon: string; rdns: st
 
 type AnnounceEvent = CustomEvent<{ info: Omit<EvmWalletInfo, 'provider'>; provider: EIP1193Provider }>
 
+const SOLANA_MAINNET = 'solana:mainnet'
+
+/** The Wallet Standard features Pitstop uses on Solana (Phantom, MetaMask, Solflare, Backpack…). */
+type SolanaFeatures = {
+  'standard:connect': { connect(input?: { silent?: boolean }): Promise<{ accounts: readonly WalletAccount[] }> }
+  'standard:disconnect'?: { disconnect(): Promise<void> }
+  'standard:events'?: { on(event: 'change', cb: (props: { accounts?: readonly WalletAccount[] }) => void): () => void }
+  'solana:signAndSendTransaction': {
+    signAndSendTransaction(
+      ...inputs: { account: WalletAccount; transaction: Uint8Array; chain: string }[]
+    ): Promise<readonly { signature: Uint8Array }[]>
+  }
+}
+const features = (w: Wallet) => w.features as unknown as SolanaFeatures
+
+/** A Solana wallet registered through the Wallet Standard. */
+export type SolanaWalletInfo = { name: string; icon: string; wallet: Wallet }
+
+const isSolanaWallet = (w: Wallet) =>
+  w.chains.includes(SOLANA_MAINNET) && 'standard:connect' in w.features && 'solana:signAndSendTransaction' in w.features
+
 type WalletState = {
   /** EVM wallets found in this browser. */
   evmWallets: EvmWalletInfo[]
   evm?: { wallet: EvmWalletInfo; account: Address; chainId: number }
-  /** Phantom's Solana provider, if installed. */
-  hasPhantom: boolean
-  solana?: { account: string }
+  /** Solana wallets found in this browser (Wallet Standard). */
+  solWallets: SolanaWalletInfo[]
+  solana?: { wallet: SolanaWalletInfo; account: WalletAccount; address: string }
   connectEvm: (wallet: EvmWalletInfo) => Promise<void>
-  connectSolana: () => Promise<void>
+  connectSolana: (wallet: SolanaWalletInfo) => Promise<void>
+  /** Signs and sends a serialized Solana transaction with the connected wallet; returns the base58 signature. */
+  sendSolanaTransaction: (transaction: Uint8Array) => Promise<string>
   disconnect: (kind: 'evm' | 'solana') => void
 }
 
 const WalletContext = createContext<WalletState | undefined>(undefined)
 const LAST_EVM = 'pitstop.wallet.evm'
+const LAST_SOL = 'pitstop.wallet.solana'
 
-function remember(rdns?: string) {
+function remember(key: string, value?: string) {
   try {
-    if (rdns) localStorage.setItem(LAST_EVM, rdns)
-    else localStorage.removeItem(LAST_EVM)
+    if (value) localStorage.setItem(key, value)
+    else localStorage.removeItem(key)
   } catch {
     // Storage blocked: the choice just isn't remembered.
   }
 }
-function lastRdns() {
+function recall(key: string) {
   try {
-    return localStorage.getItem(LAST_EVM) ?? undefined
+    return localStorage.getItem(key) ?? undefined
   } catch {
     return undefined
   }
 }
 
-/** Discovers injected wallets (EIP-6963 for EVM, Phantom for Solana) and tracks the connected accounts. */
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+/** Base58 for Solana signatures (what explorers and LI.FI expect). */
+function base58(bytes: Uint8Array) {
+  const digits: number[] = []
+  for (const byte of bytes) {
+    let carry = byte
+    for (let i = 0; i < digits.length; i++) {
+      carry += digits[i]! << 8
+      digits[i] = carry % 58
+      carry = (carry / 58) | 0
+    }
+    while (carry) {
+      digits.push(carry % 58)
+      carry = (carry / 58) | 0
+    }
+  }
+  let out = ''
+  for (const byte of bytes) {
+    if (byte !== 0) break
+    out += '1'
+  }
+  for (let i = digits.length - 1; i >= 0; i--) out += B58[digits[i]!]
+  return out
+}
+
+/** Discovers injected wallets (EIP-6963 for EVM, Wallet Standard for Solana) and tracks the connected accounts. */
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [evmWallets, setEvmWallets] = useState<EvmWalletInfo[]>([])
   const [evm, setEvm] = useState<WalletState['evm']>()
   const [solana, setSolana] = useState<WalletState['solana']>()
-  const hasPhantom = Boolean(window.phantom?.solana?.isPhantom)
+  const [solWallets, setSolWallets] = useState<SolanaWalletInfo[]>([])
 
   // EIP-6963: each wallet extension announces itself; ask them to announce now.
   useEffect(() => {
@@ -72,14 +123,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!accounts[0]) return false
     const chainId = Number(await wallet.provider.request({ method: 'eth_chainId' }))
     setEvm({ wallet, account: accounts[0], chainId })
-    remember(wallet.rdns)
+    remember(LAST_EVM, wallet.rdns)
     return true
   }, [])
 
   // Reconnect silently to the wallet used last time, if it still grants access.
   useEffect(() => {
     if (evm) return
-    const rdns = lastRdns()
+    const rdns = recall(LAST_EVM)
     const wallet = evmWallets.find((w) => w.rdns === rdns)
     if (wallet) void attach(wallet, false).catch(() => {})
   }, [evmWallets, evm, attach])
@@ -99,44 +150,84 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [evm?.wallet])
 
-  // Phantom: reconnect if already trusted, and follow account switches.
+  // Wallet Standard: list Solana wallets now and as more register.
   useEffect(() => {
-    const phantom = window.phantom?.solana
-    if (!phantom) return
-    const onChange = (pk: { toString(): string } | null) => setSolana(pk ? { account: pk.toString() } : undefined)
-    phantom.on('accountChanged', onChange)
-    phantom.connect({ onlyIfTrusted: true }).then((r) => onChange(r.publicKey), () => {})
-    return () => phantom.removeListener?.('accountChanged', onChange)
+    const registry = getWallets()
+    const sync = () =>
+      setSolWallets(registry.get().filter(isSolanaWallet).map((wallet) => ({ name: wallet.name, icon: wallet.icon, wallet })))
+    sync()
+    const offRegister = registry.on('register', sync)
+    const offUnregister = registry.on('unregister', sync)
+    return () => {
+      offRegister()
+      offUnregister()
+    }
   }, [])
+
+  const attachSolana = useCallback(async (info: SolanaWalletInfo, silent: boolean) => {
+    const { accounts } = await features(info.wallet)['standard:connect'].connect(silent ? { silent: true } : undefined)
+    const account = accounts.find((a) => a.chains.includes(SOLANA_MAINNET)) ?? accounts[0]
+    if (!account) return false
+    setSolana({ wallet: info, account, address: account.address })
+    remember(LAST_SOL, info.name)
+    return true
+  }, [])
+
+  // Reconnect silently to the Solana wallet used last time.
+  useEffect(() => {
+    if (solana) return
+    const name = recall(LAST_SOL)
+    const info = solWallets.find((w) => w.name === name)
+    if (info) void attachSolana(info, true).catch(() => {})
+  }, [solWallets, solana, attachSolana])
+
+  // Follow account switches in the connected Solana wallet.
+  useEffect(() => {
+    const events = solana && features(solana.wallet.wallet)['standard:events']
+    if (!events || !solana) return
+    return events.on('change', ({ accounts }) => {
+      if (!accounts) return
+      const account = accounts[0]
+      setSolana((cur) => (cur && account ? { ...cur, account, address: account.address } : undefined))
+    })
+  }, [solana?.wallet])
 
   const value = useMemo<WalletState>(
     () => ({
       evmWallets,
       evm,
-      hasPhantom,
+      solWallets,
       solana,
       connectEvm: async (wallet) => {
         if (await attach(wallet, true)) {
           await switchToBase(wallet.provider).catch(() => {})
         }
       },
-      connectSolana: async () => {
-        const phantom = window.phantom?.solana
-        if (!phantom?.isPhantom) throw new Error('Phantom is not installed. Install it and reload the page.')
-        const r = await phantom.connect()
-        setSolana({ account: r.publicKey.toString() })
+      connectSolana: async (info) => {
+        if (!(await attachSolana(info, false))) throw new Error(`${info.name} returned no Solana account.`)
+      },
+      sendSolanaTransaction: async (transaction) => {
+        if (!solana) throw new Error('Connect a Solana wallet first.')
+        const [out] = await features(solana.wallet.wallet)['solana:signAndSendTransaction'].signAndSendTransaction({
+          account: solana.account,
+          transaction,
+          chain: SOLANA_MAINNET,
+        })
+        if (!out) throw new Error('The wallet returned no signature.')
+        return base58(out.signature)
       },
       disconnect: (kind) => {
         if (kind === 'evm') {
           setEvm(undefined)
-          remember(undefined)
+          remember(LAST_EVM)
         } else {
+          if (solana) void features(solana.wallet.wallet)['standard:disconnect']?.disconnect().catch(() => {})
           setSolana(undefined)
-          void window.phantom?.solana?.disconnect?.()
+          remember(LAST_SOL)
         }
       },
     }),
-    [evmWallets, evm, hasPhantom, solana, attach],
+    [evmWallets, evm, solWallets, solana, attach, attachSolana],
   )
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>

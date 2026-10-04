@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { BOT_HANDLE, CopyButton, FlagChip, FuelCells } from './ui'
 
 /** The real mainnet demo, replayed: 4 Nansen calls at $0.01, the 5th refused by Tempo. */
@@ -59,13 +59,21 @@ const STEPS = [
   { n: '04', t: 'Refill', d: 'Low on fuel? The agent tops itself up.' },
 ]
 
-const STACK: [string, string][] = [
-  ['Tempo', 'The payments chain. Enforces the limit.'],
-  ['LI.FI', 'Moves USDC in from other chains.'],
-  ['MPP', 'Lets the agent pay APIs per call.'],
-  ['Base · Solana', 'Where your USDC comes from.'],
-  ['Cloudflare', 'Hosts the app and sends alerts.'],
-  ['MCP', 'Works inside Claude and Cursor.'],
+const BUILT_ON = [
+  {
+    name: 'LI.FI',
+    role: 'Brings the fuel in',
+    line: 'Routes USDC from Base and Solana into Tempo through Across and Relay.',
+    stats: [['~1–2 s', 'to Tempo'], ['75', 'chains'], ['0.25%', 'Pitstop fee']],
+    href: 'https://li.fi',
+  },
+  {
+    name: 'Tempo',
+    role: 'Holds the leash',
+    line: 'The payments chain. Its Account Keychain checks every payment against the agent’s limit.',
+    stats: [['On-chain', 'limits'], ['$0.00004', 'fee per payment'], ['Passkey', 'owner']],
+    href: 'https://tempo.xyz',
+  },
 ]
 
 const MCP_SNIPPET = `{
@@ -90,6 +98,132 @@ const FAQ: [string, string][] = [
   ['What if I lose my passkey?', 'You can’t change the limit any more, but the agent’s key still expires. Keep small balances.'],
 ]
 
+
+/** Plain-language story: what an agent is, why it needs fuel and a leash. */
+const STORY = [
+  {
+    k: '01 · The driver',
+    t: 'An AI agent works for you',
+    d: 'An agent is an AI, like Claude, that does tasks on its own. It researches, calls APIs and finishes the job while you do something else.',
+    scene: ['you   › Which wallets are buying LINK?', 'agent › asking Nansen…', 'agent › found 12 smart-money buyers'],
+  },
+  {
+    k: '02 · The fuel',
+    t: 'It pays for each call',
+    d: 'Good data costs money. On Tempo, services like Nansen charge the agent a cent per request, paid instantly in dollars. No account, no API key, no card.',
+    scene: ['POST nansen/token-information', '402 · pay $0.01', 'paid · 200 OK'],
+  },
+  {
+    k: '03 · The pit stop',
+    t: 'Fuel in seconds. Rules you set.',
+    d: 'Pitstop refuels the agent from any chain in seconds and gives it a key with a daily budget. You stay in charge, and the chain enforces it.',
+    scene: ['fuel   +2.00 USDC in 1.4 s', 'limit  $5 a day', '6th $1 call → refused'],
+  },
+]
+
+/** Replays a scene's lines when the card scrolls into view; lines stay visible at rest. */
+function StoryCard({ item }: { item: (typeof STORY)[number] }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [play, setPlay] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !('IntersectionObserver' in window)) return
+    const io = new IntersectionObserver(([e]) => e?.isIntersecting && (setPlay(true), io.disconnect()), { threshold: 0.4 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  return (
+    <div ref={ref} className={`story-card${play ? ' play' : ''}`}>
+      <p className="eyebrow">{item.k}</p>
+      <h3 className="story-title">{item.t}</h3>
+      <p className="muted">{item.d}</p>
+      <div className="scene" aria-hidden>
+        {item.scene.map((line, i) => (
+          <span key={line} style={{ animationDelay: `${0.25 + i * 0.45}s` }}>
+            {line}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Story() {
+  return (
+    <section id="why">
+      <div className="shell" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="lane" />
+        <h2 className="section">Why agents need a pit stop</h2>
+        <p className="lede">
+          In a race, the driver goes fast and the pit crew keeps the car running. Your AI agent is the driver. Pitstop is the crew: fuel when
+          it runs low, and rules it can’t break.
+        </p>
+        <div className="story">
+          {STORY.map((item) => (
+            <StoryCard key={item.k} item={item} />
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+
+/** The industry problem, today vs with Pitstop, each backed by a mainnet result. */
+const PROBLEMS = [
+  {
+    p: 'The money is in the wrong place',
+    today: 'Agents pay on Tempo, but people keep their dollars on Solana, Base or Ethereum. Every top-up means bridges, gas tokens and minutes of clicking.',
+    fix: 'One link fuels the agent from any chain. LI.FI finds the route and the USDC lands on Tempo in one to two seconds.',
+    proof: 'Base → Tempo in ~2 s',
+  },
+  {
+    p: 'Trust depends on someone’s server',
+    today: 'To cap an agent you either trust a provider’s backend to say no, or you hand it a full wallet and hope nothing goes wrong.',
+    fix: 'The limit lives in the account itself. Tempo refuses any payment past it, so there is no server to bypass and nothing to hack around.',
+    proof: '5th call refused by Tempo',
+  },
+  {
+    p: 'Owners are flying blind',
+    today: 'You find out the agent ran dry, or spent too much, after it already happened.',
+    fix: 'A live pit wall shows fuel, limit left and every payment. Telegram pings you when fuel is low, and the agent can refill itself.',
+    proof: 'Alerts and auto-refill on mainnet',
+  },
+]
+
+function Problems() {
+  return (
+    <section id="problem">
+      <div className="shell" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="lane" />
+        <h2 className="section">The problem, and how Pitstop fixes it</h2>
+        <p className="lede">
+          AI agents are starting to pay for the services they use, one request at a time. The payments rail exists. What’s missing is the
+          pit crew: a fast way to get money to the agent, and a hard limit on what it can do with it.
+        </p>
+        <div className="problems">
+          <div className="problems-head" aria-hidden>
+            <span />
+            <span><i className="dot-flag bad" /> Today</span>
+            <span><i className="dot-flag ok" /> With Pitstop</span>
+          </div>
+          {PROBLEMS.map((row) => (
+            <div className="problem-row" key={row.p}>
+              <h3 className="problem-title">{row.p}</h3>
+              <p className="problem-today"><span className="m-label">Today</span>{row.today}</p>
+              <div className="problem-fix">
+                <span className="m-label">With Pitstop</span>
+                <p>{row.fix}</p>
+                <span className="proof-chip">✓ {row.proof}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function Landing() {
   return (
     <main className="landing">
@@ -111,6 +245,10 @@ export function Landing() {
           <ReplayBoard />
         </div>
       </div>
+
+      <Story />
+
+      <Problems />
 
       <section>
         <div className="shell" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -164,15 +302,32 @@ export function Landing() {
         </div>
       </section>
 
-      <section>
+      <section id="built-on">
         <div className="shell" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <p className="eyebrow">Built on</p>
-          <div className="stack">
-            {STACK.map(([name, what]) => (
-              <div className="card lift" key={name}>
-                <h3 style={{ font: '800 22px/1 var(--display)', textTransform: 'uppercase' }}>{name}</h3>
-                <p className="small muted">{what}</p>
-              </div>
+          <div className="builton">
+            {BUILT_ON.map((b, i) => (
+              <Fragment key={b.name}>
+                {i === 1 && (
+                  <div className="fuelline" aria-hidden>
+                    <span>USDC</span>
+                  </div>
+                )}
+                <a className="partner lift" href={b.href} target="_blank" rel="noreferrer">
+                  <span className="partner-role">{b.role}</span>
+                  <span className="partner-name">{b.name}</span>
+                  <span className="partner-line">{b.line}</span>
+                  <span className="partner-stats">
+                    {b.stats.map(([v, l]) => (
+                      <span key={l}>
+                        <b>{v}</b>
+                        {l}
+                      </span>
+                    ))}
+                  </span>
+                  <span className="partner-link">{b.href.replace('https://', '')} ↗</span>
+                </a>
+              </Fragment>
             ))}
           </div>
         </div>
@@ -221,7 +376,7 @@ export function Landing() {
 
       <footer className="footer">
         <div className="shell">
-          <span>Pitstop · built on Tempo, LI.FI and MPP · Colosseum World’s Fair 2026</span>
+          <span>Pitstop · fuel and spending limits for AI agents · built on Tempo and LI.FI</span>
           <span className="row" style={{ gap: 16 }}>
             <a href="/fuel">Fuel</a>
             <a href="/guard">Guard</a>

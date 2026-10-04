@@ -23,7 +23,7 @@ import { base } from 'viem/chains'
 import { PanelHead, short, usd, useAgent } from './ui'
 import { BASE_CHAIN_ID, openConnect, switchToBase, useWallet } from './wallet'
 
-/** Safety cap while Pitstop is in testing. */
+/** Per-transfer cap on the web app. */
 const MAX_USDC = 5
 const LIFI_PROXY = '/lifi/v1'
 
@@ -31,7 +31,7 @@ type Source = 'base' | 'solana'
 const SOURCES: Record<Source, { label: string; chainId: number; usdc: string; wallet: string; ttlMs: number }> = {
   base: { label: 'Base', chainId: base.id, usdc: SOURCE_TOKENS.base.USDC, wallet: 'Rabby, MetaMask or Phantom', ttlMs: 60_000 },
   // A Solana transaction carries a recent blockhash that expires in about a minute.
-  solana: { label: 'Solana', chainId: SOLANA_CHAIN_ID, usdc: SOURCE_TOKENS.solana.USDC, wallet: 'Phantom', ttlMs: 25_000 },
+  solana: { label: 'Solana', chainId: SOLANA_CHAIN_ID, usdc: SOURCE_TOKENS.solana.USDC, wallet: 'Phantom, MetaMask or another Solana wallet', ttlMs: 25_000 },
 }
 
 const baseClient = createPublicClient({ chain: base, transport: http() }) as PublicClient
@@ -61,7 +61,7 @@ export function Fuel() {
   const amountNum = Number(amount)
   const amountOk = Number.isFinite(amountNum) && amountNum > 0 && amountNum <= MAX_USDC
   const fromAmount = useMemo(() => (amountOk ? parseUnits(amount, 6) : 0n), [amount, amountOk])
-  const sender = source === 'base' ? w.evm?.account : w.solana?.account
+  const sender = source === 'base' ? w.evm?.account : w.solana?.address
   const onBase = w.evm?.chainId === BASE_CHAIN_ID
   const ready = source === 'base' ? !!w.evm && onBase : !!w.solana
   const enoughFunds = source === 'solana' || (baseUsdc != null && baseUsdc >= fromAmount)
@@ -148,11 +148,8 @@ export function Fuel() {
           },
         })
       } else {
-        const phantom = window.phantom?.solana
-        if (!phantom) throw new Error('Phantom not found')
-        // Loaded on demand so Base users never download the Solana library.
-        const { VersionedTransaction } = await import('@solana/web3.js')
-        const { signature } = await phantom.signAndSendTransaction(VersionedTransaction.deserialize(fromBase64(tx.data)))
+        // The wallet (Wallet Standard) signs and sends LI.FI's serialized transaction as-is.
+        const signature = await w.sendSolanaTransaction(fromBase64(tx.data))
         hash = signature
         update(0, { state: 'done', link: { href: `https://solscan.io/tx/${signature}`, text: 'Solscan ↗' } })
       }
@@ -207,14 +204,14 @@ export function Fuel() {
           ))}
         </div>
         <label className="field">
-          <span>Amount (USDC, max {MAX_USDC} while testing)</span>
+          <span>Amount (USDC, up to {MAX_USDC} per transfer)</span>
           <input id="amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(',', '.'))} />
           {!amountOk && <small className="note bad">Enter an amount between 0 and {MAX_USDC}.</small>}
         </label>
         <div className="row">
           {!sender ? (
             <button className="primary" onClick={() => openConnect(source)}>
-              Connect {source === 'base' ? 'a Base wallet' : 'Phantom'}
+              Connect {source === 'base' ? 'a Base wallet' : 'a Solana wallet'}
             </button>
           ) : source === 'base' && !onBase ? (
             <button className="primary" onClick={() => run(() => switchToBase(w.evm!.wallet.provider))} disabled={busy}>
