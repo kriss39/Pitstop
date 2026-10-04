@@ -18,8 +18,22 @@ export const LIFI_API_URL = 'https://li.quest/v1'
 /** Pitstop's integrator fee on fuel routes (0.25%), collected by LI.FI to the fee wallet set in the LI.FI portal. */
 export const PITSTOP_FEE = 0.0025
 
-/** LI.FI Diamond contract. Same address on every EVM chain LI.FI supports. */
+/** LI.FI Diamond contract. Same address on most EVM chains LI.FI supports. */
 export const LIFI_DIAMOND: Address = '0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE'
+
+/** Chains where LI.FI deployed its Diamond elsewhere (lifinance/contracts deployments/*.json). */
+const LIFI_DIAMOND_BY_CHAIN: Record<number, Address> = {
+  5042: '0xA4072583658Fae592A3506A42431cb6316a8d40b', // Arc
+}
+
+/** The LI.FI Diamond a fuel transaction on `chainId` must call. */
+export function lifiDiamond(chainId: number): Address {
+  return LIFI_DIAMOND_BY_CHAIN[chainId] ?? LIFI_DIAMOND
+}
+
+/** Native gas tokens as LI.FI addresses them. */
+export const NATIVE_TOKEN = '0x0000000000000000000000000000000000000000'
+export const SOLANA_NATIVE_TOKEN = '11111111111111111111111111111111'
 
 /** LI.FI's numeric chain id for Solana. */
 export const SOLANA_CHAIN_ID = 1151111081099710
@@ -32,6 +46,8 @@ export const SOURCE_TOKENS = {
   ethereum: { chainId: 1, USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
   polygon: { chainId: 137, USDC: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359' },
   avalanche: { chainId: 43114, USDC: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E' },
+  // On Arc, USDC is the gas token; LI.FI addresses it at its ERC-20 interface.
+  arc: { chainId: 5042, USDC: '0x3600000000000000000000000000000000000000' },
   solana: { chainId: SOLANA_CHAIN_ID, USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' },
 } as const
 
@@ -92,6 +108,9 @@ export type FuelQuote = {
   toAddress: Address
   toAmount: bigint
   toAmountMin: bigint
+  /** Dollar values LI.FI estimates for what is sent and what arrives (route quality = to / from). */
+  fromAmountUSD?: number
+  toAmountUSD?: number
   durationSeconds: number
   feesUsd: number
   gasUsd: number
@@ -137,6 +156,8 @@ type RawQuote = {
     toAmount: string
     toAmountMin: string
     executionDuration: number
+    fromAmountUSD?: string
+    toAmountUSD?: string
     feeCosts?: { amountUSD?: string }[]
     gasCosts?: { amountUSD?: string }[]
   }
@@ -183,7 +204,7 @@ export async function fuelQuote(params: FuelQuoteParameters): Promise<FuelQuote>
     transactionRequest = { kind: 'solana', data: tx.data }
   } else {
     if (tx.chainId !== params.fromChain) throw new LifiError(`Transaction is for chain ${tx.chainId}, expected ${params.fromChain}`)
-    if (!tx.to || !isAddressEqual(tx.to as Address, LIFI_DIAMOND))
+    if (!tx.to || !isAddressEqual(tx.to as Address, lifiDiamond(params.fromChain)))
       throw new LifiError(`Transaction targets ${tx.to}, not the LI.FI Diamond`)
     transactionRequest = {
       kind: 'evm',
@@ -205,6 +226,8 @@ export async function fuelQuote(params: FuelQuoteParameters): Promise<FuelQuote>
     toAddress: getAddress(q.action.toAddress),
     toAmount: BigInt(q.estimate.toAmount),
     toAmountMin: BigInt(q.estimate.toAmountMin),
+    fromAmountUSD: q.estimate.fromAmountUSD != null ? Number(q.estimate.fromAmountUSD) : undefined,
+    toAmountUSD: q.estimate.toAmountUSD != null ? Number(q.estimate.toAmountUSD) : undefined,
     durationSeconds: q.estimate.executionDuration,
     feesUsd: sumUsd(q.estimate.feeCosts),
     gasUsd: sumUsd(q.estimate.gasCosts),

@@ -128,7 +128,7 @@ export function Docs() {
             </p>
             <div className="doc-flow">
               {[
-                ['Fuel', 'USDC from 7 chains'],
+                ['Fuel', 'USDC from 8 chains'],
                 ['Guard', 'Your passkey sets a daily limit'],
                 ['Pay', 'The agent pays APIs per call'],
                 ['Refill', 'It tops itself up when low'],
@@ -170,7 +170,7 @@ export function Docs() {
           </Section>
 
           <Section id="fuel" title="Fuel an agent">
-            <p>Send USDC from any of the seven chains below. The agent receives one of four stablecoins on Tempo: USDC.e (default), PathUSD, USDT0 or OUSD.</p>
+            <p>Send USDC, or the chain’s own gas token, from any of the eight chains below. The agent receives one of four stablecoins on Tempo: USDC.e (default), PathUSD, USDT0 or OUSD.</p>
             <div className="table-wrap"><table className="doc-table">
               <thead><tr><th>From</th><th>Wallets</th><th>Typical time</th><th>Route</th></tr></thead>
               <tbody>
@@ -180,11 +180,14 @@ export function Docs() {
                 <tr><td>Ethereum</td><td>Rabby, MetaMask</td><td>~2 s</td><td>Across (higher gas)</td></tr>
                 <tr><td>Polygon</td><td>Rabby, MetaMask</td><td>~2 s</td><td>Across</td></tr>
                 <tr><td>Avalanche</td><td>Rabby, MetaMask</td><td>~1 s</td><td>Relay</td></tr>
+                <tr><td>Arc</td><td>Rabby, MetaMask</td><td>~2 s</td><td>Across</td></tr>
                 <tr><td>Solana</td><td>Phantom, MetaMask, Solflare, Backpack</td><td>~1 s</td><td>Relay</td></tr>
               </tbody>
             </table></div>
             <ul className="doc-list">
-              <li>Up to 5 USDC per transfer on the web app. Approvals are for the exact amount.</li>
+              <li>Pay with USDC or the gas token (ETH, POL, AVAX, SOL). LI.FI swaps it on the way. On Arc, USDC is the gas token.</li>
+              <li>Up to $5 per transfer on the web app. Approvals are for the exact amount.</li>
+              <li>If a route would lose more than 10% of the value, Pitstop won’t send it; above 3% it warns you.</li>
               <li>Fees: a few cents for the bridge, plus a 0.25% Pitstop fee. Every quote shows the total.</li>
               <li>Before you sign, Pitstop checks that the route ends at the agent’s address on Tempo and calls the official LI.FI contract.</li>
             </ul>

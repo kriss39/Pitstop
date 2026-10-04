@@ -47,7 +47,7 @@ function ReplayBoard() {
 
 const PROOF = [
   { v: '~2 s', t: 'Fuel lands on Tempo', d: '2 USDC, real transfer', href: 'https://scan.li.fi/tx/0x53d3dda1b3309d2888cea5c352d0ab9f2120556990286b2e1ef11a33f9a9f9a2' },
-  { v: '7', t: 'Source chains', d: 'one link for all of them', href: '/docs#fuel' },
+  { v: '8', t: 'Source chains', d: 'one link for all of them', href: '/docs#fuel' },
   { v: '$0.01', t: 'Agent paid Nansen', d: 'one API call', href: 'https://explore.tempo.xyz/tx/0xe172ca615f977aaeaa2ca03635a7715d129229470a25d987f397e184514ca7d0' },
   { v: 'Blocked', t: 'Over the limit', d: 'stopped by Tempo', href: 'https://explore.tempo.xyz/address/0x9Bd4984986D273ee27077C42Fe63dFB712b50bC0' },
 ]
@@ -55,7 +55,7 @@ const PROOF = [
 const STEP_LINKS: Record<string, string> = { Fuel: '/fuel', Guard: '/guard', Pay: '/docs#pay', Refill: '/docs#agent' }
 
 const STEPS = [
-  { n: '01', t: 'Fuel', d: 'Send USDC from any of seven chains. It lands on Tempo in seconds.' },
+  { n: '01', t: 'Fuel', d: 'Send USDC or a chain’s own token from any of eight chains. It lands on Tempo in seconds.' },
   { n: '02', t: 'Guard', d: 'Your passkey sets a daily limit for the agent.' },
   { n: '03', t: 'Pay', d: 'The agent pays APIs per call, within its limit.' },
   { n: '04', t: 'Refill', d: 'Low on fuel? The agent tops itself up.' },
@@ -65,8 +65,8 @@ const BUILT_ON = [
   {
     name: 'LI.FI',
     role: 'Brings the fuel in',
-    line: 'Routes USDC from seven chains into Tempo through Across and Relay.',
-    stats: [['~1–2 s', 'to Tempo'], ['7', 'source chains'], ['0.25%', 'Pitstop fee']],
+    line: 'Routes USDC and gas tokens from eight chains into Tempo through Across and Relay.',
+    stats: [['~1–2 s', 'to Tempo'], ['8', 'source chains'], ['0.25%', 'Pitstop fee']],
     href: 'https://li.fi',
   },
   {
@@ -154,7 +154,7 @@ function Story() {
 
 /** What's broken for agents today, and the fix, each backed by a mainnet result. */
 const PROBLEMS = [
-  { n: '01', p: 'The money is on other chains', pain: 'Every top-up means bridges, gas tokens and minutes of clicking.', fix: 'One link fuels the agent from any of seven chains in seconds.', proof: 'Lands on Tempo in ~2 s' },
+  { n: '01', p: 'The money is on other chains', pain: 'Every top-up means bridges, gas tokens and minutes of clicking.', fix: 'One link fuels the agent from any of eight chains in seconds.', proof: 'Lands on Tempo in ~2 s' },
   { n: '02', p: 'Nothing stops a runaway agent', pain: 'Limits live in someone’s backend, or nowhere at all.', fix: 'The daily limit lives on-chain. Tempo refuses anything past it.', proof: '5th call refused by Tempo' },
   { n: '03', p: 'You find out too late', pain: 'The agent runs dry or overspends before you notice.', fix: 'A live dashboard, Telegram alerts, and refills on autopilot.', proof: 'Alerts and auto-refill live' },
 ]

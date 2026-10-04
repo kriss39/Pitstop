@@ -1,7 +1,9 @@
 import {
   executeFuel,
   fuelQuote,
+  NATIVE_TOKEN,
   PITSTOP_FEE,
+  SOLANA_NATIVE_TOKEN,
   SOLANA_CHAIN_ID,
   SOURCE_TOKENS,
   waitForFuel,
@@ -15,34 +17,48 @@ import {
   createWalletClient,
   custom,
   erc20Abi,
+  formatUnits,
   http,
   isAddress,
   parseUnits,
   type Address,
   type PublicClient,
 } from 'viem'
-import { arbitrum, avalanche, base, mainnet, optimism, polygon, type Chain } from 'viem/chains'
+import { arbitrum, arc, avalanche, base, mainnet, optimism, polygon, type Chain } from 'viem/chains'
 import { PanelHead, short, TokenPicker, usd, useAgent } from './ui'
 import { openConnect, switchChain, useWallet } from './wallet'
 
-/** Per-transfer cap on the web app. */
-const MAX_USDC = 5
+/** Per-transfer cap on the web app, in dollars. */
+const MAX_USD = 5
+/** Route cost (value lost between send and arrival) that triggers a warning, and that blocks the transfer. */
+const COST_WARN = 0.03
+const COST_BLOCK = 0.1
 const LIFI_PROXY = '/lifi/v1'
 
-type Source = 'base' | 'arbitrum' | 'optimism' | 'ethereum' | 'polygon' | 'avalanche' | 'solana'
-type SourceInfo = { label: string; chainId: number; usdc: string; ttlMs: number; chain?: Chain; explorer?: string }
+type Source = 'base' | 'arbitrum' | 'optimism' | 'ethereum' | 'polygon' | 'avalanche' | 'arc' | 'solana'
+type SourceInfo = {
+  label: string
+  chainId: number
+  usdc: string
+  ttlMs: number
+  chain?: Chain
+  explorer?: string
+  /** The chain's gas token, if it isn't USDC itself (Arc's gas token is USDC). */
+  native?: { symbol: string; decimals: number }
+}
 
-const EVM_WALLETS = 'Rabby, MetaMask or Phantom'
-// Every route below was quoted to Tempo through the LI.FI Diamond on 2026-10-04.
+const ETH = { symbol: 'ETH', decimals: 18 }
+// Every route below was quoted to Tempo through LI.FI on 2026-10-04.
 const SOURCES: Record<Source, SourceInfo> = {
-  base: { label: 'Base', chainId: base.id, usdc: SOURCE_TOKENS.base.USDC, ttlMs: 60_000, chain: base, explorer: 'https://basescan.org' },
-  arbitrum: { label: 'Arbitrum', chainId: arbitrum.id, usdc: SOURCE_TOKENS.arbitrum.USDC, ttlMs: 60_000, chain: arbitrum, explorer: 'https://arbiscan.io' },
-  optimism: { label: 'Optimism', chainId: optimism.id, usdc: SOURCE_TOKENS.optimism.USDC, ttlMs: 60_000, chain: optimism, explorer: 'https://optimistic.etherscan.io' },
-  ethereum: { label: 'Ethereum', chainId: mainnet.id, usdc: SOURCE_TOKENS.ethereum.USDC, ttlMs: 60_000, chain: mainnet, explorer: 'https://etherscan.io' },
-  polygon: { label: 'Polygon', chainId: polygon.id, usdc: SOURCE_TOKENS.polygon.USDC, ttlMs: 60_000, chain: polygon, explorer: 'https://polygonscan.com' },
-  avalanche: { label: 'Avalanche', chainId: avalanche.id, usdc: SOURCE_TOKENS.avalanche.USDC, ttlMs: 60_000, chain: avalanche, explorer: 'https://snowtrace.io' },
+  base: { label: 'Base', chainId: base.id, usdc: SOURCE_TOKENS.base.USDC, ttlMs: 60_000, chain: base, explorer: 'https://basescan.org', native: ETH },
+  arbitrum: { label: 'Arbitrum', chainId: arbitrum.id, usdc: SOURCE_TOKENS.arbitrum.USDC, ttlMs: 60_000, chain: arbitrum, explorer: 'https://arbiscan.io', native: ETH },
+  optimism: { label: 'Optimism', chainId: optimism.id, usdc: SOURCE_TOKENS.optimism.USDC, ttlMs: 60_000, chain: optimism, explorer: 'https://optimistic.etherscan.io', native: ETH },
+  ethereum: { label: 'Ethereum', chainId: mainnet.id, usdc: SOURCE_TOKENS.ethereum.USDC, ttlMs: 60_000, chain: mainnet, explorer: 'https://etherscan.io', native: ETH },
+  polygon: { label: 'Polygon', chainId: polygon.id, usdc: SOURCE_TOKENS.polygon.USDC, ttlMs: 60_000, chain: polygon, explorer: 'https://polygonscan.com', native: { symbol: 'POL', decimals: 18 } },
+  avalanche: { label: 'Avalanche', chainId: avalanche.id, usdc: SOURCE_TOKENS.avalanche.USDC, ttlMs: 60_000, chain: avalanche, explorer: 'https://snowtrace.io', native: { symbol: 'AVAX', decimals: 18 } },
+  arc: { label: 'Arc', chainId: arc.id, usdc: SOURCE_TOKENS.arc.USDC, ttlMs: 60_000, chain: arc, explorer: 'https://explorer.arc.io' },
   // A Solana transaction carries a recent blockhash that expires in about a minute.
-  solana: { label: 'Solana', chainId: SOLANA_CHAIN_ID, usdc: SOURCE_TOKENS.solana.USDC, ttlMs: 25_000 },
+  solana: { label: 'Solana', chainId: SOLANA_CHAIN_ID, usdc: SOURCE_TOKENS.solana.USDC, ttlMs: 25_000, native: { symbol: 'SOL', decimals: 9 } },
 }
 const SOURCE_KEYS = Object.keys(SOURCES) as Source[]
 
@@ -75,7 +91,8 @@ export function Fuel() {
     const t = params.get('token')
     return (FUEL_TOKENS as readonly string[]).includes(t ?? '') ? (t as FuelTokenSymbol) : 'USDCe'
   })
-  const [srcUsdc, setSrcUsdc] = useState<bigint>()
+  const [payNative, setPayNative] = useState(params.get('pay') === 'native')
+  const [srcBalance, setSrcBalance] = useState<bigint>()
   const [quote, setQuote] = useState<FuelQuote>()
   const [quotedAt, setQuotedAt] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -84,24 +101,36 @@ export function Fuel() {
   const [finished, setFinished] = useState<number>()
 
   const src = SOURCES[source]
+  const useNative = payNative && !!src.native
+  // What the user pays with: the chain's USDC, or its gas token.
+  const pay = useNative
+    ? { symbol: src.native!.symbol, decimals: src.native!.decimals, address: src.chain ? NATIVE_TOKEN : SOLANA_NATIVE_TOKEN }
+    : { symbol: 'USDC', decimals: 6, address: src.usdc }
   const agentOk = isAddress(agent)
   const target = useAgent(agentOk ? agent : undefined)
   const amountNum = Number(amount)
-  const amountOk = Number.isFinite(amountNum) && amountNum > 0 && amountNum <= MAX_USDC
-  const fromAmount = useMemo(() => (amountOk ? parseUnits(amount, 6) : 0n), [amount, amountOk])
+  // USDC is capped before quoting; gas tokens are checked against MAX_USD once the quote prices them.
+  const amountOk = Number.isFinite(amountNum) && amountNum > 0 && (useNative || amountNum <= MAX_USD)
+  const fromAmount = useMemo(() => (amountOk ? parseUnits(amount, pay.decimals) : 0n), [amount, amountOk, pay.decimals])
   const isEvm = !!src.chain
   const sender = isEvm ? w.evm?.account : w.solana?.address
   const onChain = isEvm && w.evm?.chainId === src.chainId
   const ready = isEvm ? !!w.evm && onChain : !!w.solana
-  const enoughFunds = !isEvm || (srcUsdc != null && srcUsdc >= fromAmount)
+  const enoughFunds = !isEvm || (srcBalance != null && srcBalance >= fromAmount)
+  const routeCost = quote?.fromAmountUSD && quote.toAmountUSD ? 1 - quote.toAmountUSD / quote.fromAmountUSD : undefined
+  const overCap = quote?.fromAmountUSD != null && quote.fromAmountUSD > MAX_USD * 1.01
+  const tooCostly = routeCost != null && routeCost > COST_BLOCK
 
   useEffect(() => {
-    setSrcUsdc(undefined)
+    setSrcBalance(undefined)
     if (!w.evm || !src.chain) return
-    clientFor(src.chain)
-      .readContract({ address: src.usdc as Address, abi: erc20Abi, functionName: 'balanceOf', args: [w.evm.account] })
-      .then(setSrcUsdc, () => setSrcUsdc(undefined))
-  }, [w.evm?.account, source, finished])
+    const c = clientFor(src.chain)
+    const read =
+      useNative
+        ? c.getBalance({ address: w.evm.account })
+        : c.readContract({ address: src.usdc as Address, abi: erc20Abi, functionName: 'balanceOf', args: [w.evm.account] })
+    read.then(setSrcBalance, () => setSrcBalance(undefined))
+  }, [w.evm?.account, source, useNative, finished])
 
   // Picking an EVM source asks the connected wallet to switch to it.
   useEffect(() => {
@@ -109,7 +138,7 @@ export function Fuel() {
   }, [source, !!w.evm])
 
   // A quote is only valid for the inputs it was made for.
-  useEffect(() => setQuote(undefined), [agent, amount, source, sender, receive])
+  useEffect(() => setQuote(undefined), [agent, amount, source, sender, receive, useNative])
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true)
@@ -127,7 +156,7 @@ export function Fuel() {
   const newQuote = async () => {
     const q = await fuelQuote({
       fromChain: src.chainId,
-      fromToken: src.usdc,
+      fromToken: pay.address,
       fromAmount,
       fromAddress: sender!,
       toAddress: agent as Address,
@@ -145,6 +174,10 @@ export function Fuel() {
     run(async () => {
       setFinished(undefined)
       const q = Date.now() - quotedAt > src.ttlMs ? await newQuote() : quote!
+      // Re-check the (possibly refreshed) quote before anything is signed.
+      if (q.fromAmountUSD != null && q.fromAmountUSD > MAX_USD * 1.01) throw new Error(`Over the $${MAX_USD} per-transfer cap.`)
+      if (q.fromAmountUSD && q.toAmountUSD && 1 - q.toAmountUSD / q.fromAmountUSD > COST_BLOCK)
+        throw new Error('This route got too expensive. Get a new quote or try another chain.')
       const tx = q.transactionRequest
       const t0 = Date.now()
       const list: Step[] =
@@ -214,7 +247,7 @@ export function Fuel() {
         <p className="eyebrow">01 · Fuel</p>
         <h1 className="title">Refuel an agent on Tempo</h1>
         <p className="lede">
-          Send USDC from any of seven chains. The agent receives USDC.e, PathUSD, USDT0 or OUSD on Tempo in seconds. You sign in your own wallet; Pitstop never holds funds.
+          Send USDC or the chain’s own token from any of eight chains. The agent receives USDC.e, PathUSD, USDT0 or OUSD on Tempo in seconds. You sign in your own wallet; Pitstop never holds funds.
         </p>
       </header>
 
@@ -242,6 +275,21 @@ export function Fuel() {
             </button>
           ))}
         </div>
+        {src.native && (
+          <div className="field">
+            <span>Pay with</span>
+            <div className="seg" role="radiogroup" aria-label="Token to pay with">
+              <button role="radio" aria-checked={!useNative} onClick={() => setPayNative(false)} disabled={busy}>USDC</button>
+              <button role="radio" aria-checked={useNative} onClick={() => setPayNative(true)} disabled={busy}>{src.native.symbol}</button>
+            </div>
+            {useNative && <small className="muted">LI.FI swaps {src.native.symbol} into the stablecoin the agent receives, on the way to Tempo.</small>}
+          </div>
+        )}
+        <label className="field">
+          <span>Amount ({pay.symbol}{useNative ? `, worth up to $${MAX_USD}` : `, up to ${MAX_USD}`} per transfer)</span>
+          <input id="amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(',', '.'))} />
+          {!amountOk && amount !== '' && <small className="note bad">Enter an amount{useNative ? ' above 0' : ` between 0 and ${MAX_USD}`}.</small>}
+        </label>
         <div className="field">
           <span>Agent receives on Tempo</span>
           <TokenPicker value={receive} onChange={setReceive} disabled={busy} label="Token received on Tempo" />
@@ -250,11 +298,6 @@ export function Fuel() {
             A guarded key only spends the token it was authorized for.
           </small>
         </div>
-        <label className="field">
-          <span>Amount (USDC, up to {MAX_USDC} per transfer)</span>
-          <input id="amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(',', '.'))} />
-          {!amountOk && <small className="note bad">Enter an amount between 0 and {MAX_USDC}.</small>}
-        </label>
         <div className="row">
           {!sender ? (
             <button className="primary" onClick={() => openConnect(isEvm ? 'base' : 'solana')}>
@@ -272,12 +315,12 @@ export function Fuel() {
           {sender && (
             <span className="small muted">
               From {short(sender)} on {src.label}
-              {isEvm && srcUsdc != null && ` · ${usd(srcUsdc)} USDC`}
+              {isEvm && srcBalance != null && ` · ${Number(formatUnits(srcBalance, pay.decimals)).toFixed(pay.decimals > 6 ? 5 : 2)} ${pay.symbol}`}
             </span>
           )}
         </div>
-        {isEvm && ready && srcUsdc != null && !enoughFunds && (
-          <p className="note bad">This wallet has less USDC on {src.label} than the amount.</p>
+        {isEvm && ready && srcBalance != null && !enoughFunds && (
+          <p className="note bad">This wallet has less {pay.symbol} on {src.label} than the amount.</p>
         )}
       </section>
 
@@ -286,19 +329,35 @@ export function Fuel() {
           <PanelHead num="C" title="Quote" />
           <div>
             <p className="eyebrow">Agent receives</p>
-            <p className="big">{usd(quote.toAmount, 4)} USDCe</p>
+            <p className="big">{usd(quote.toAmount, 4)} {quote.toToken.symbol}</p>
           </div>
           <dl>
-            <div><dt>You send</dt><dd>{usd(quote.fromAmount)} USDC · {src.label}</dd></div>
+            <div>
+              <dt>You send</dt>
+              <dd>
+                {Number(formatUnits(quote.fromAmount, pay.decimals)).toFixed(pay.decimals > 6 ? 5 : 2)} {pay.symbol} · {src.label}
+                {quote.fromAmountUSD != null && <span className="muted"> (${quote.fromAmountUSD.toFixed(2)})</span>}
+              </dd>
+            </div>
             <div><dt>Arrives in</dt><dd>~{quote.durationSeconds} s via {quote.tool}</dd></div>
-            <div><dt>Minimum</dt><dd>{usd(quote.toAmountMin, 4)} USDCe</dd></div>
+            <div><dt>Minimum</dt><dd>{usd(quote.toAmountMin, 4)} {quote.toToken.symbol}</dd></div>
+            <div><dt>Route cost</dt><dd>{routeCost != null ? `${(routeCost * 100).toFixed(1)}% of value` : '–'}</dd></div>
             <div><dt>Fees + gas</dt><dd>${(quote.feesUsd + quote.gasUsd).toFixed(4)} · incl. {PITSTOP_FEE * 100}% Pitstop</dd></div>
             <div><dt>To</dt><dd className="mono">{short(quote.toAddress)} · Tempo</dd></div>
             <div><dt>Contract</dt><dd className="mono">LI.FI Diamond (checked)</dd></div>
           </dl>
+          {overCap && <p className="note bad">That’s worth ${quote.fromAmountUSD!.toFixed(2)}, over the ${MAX_USD} per-transfer cap. Lower the amount.</p>}
+          {tooCostly && (
+            <p className="note bad">
+              This route would lose {(routeCost! * 100).toFixed(0)}% of the value, so Pitstop won’t send it. Try USDC, another chain, or a larger amount.
+            </p>
+          )}
+          {!tooCostly && routeCost != null && routeCost > COST_WARN && (
+            <p className="note warn">This route costs {(routeCost * 100).toFixed(1)}% of the value. USDC from another chain is usually cheaper.</p>
+          )}
           <div className="row">
-            <button className="primary" onClick={fuel} disabled={busy || !enoughFunds}>
-              Fuel agent with {amount} USDC
+            <button className="primary" onClick={fuel} disabled={busy || !enoughFunds || overCap || tooCostly}>
+              Fuel agent with {amount} {pay.symbol}
             </button>
           </div>
         </section>

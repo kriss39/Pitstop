@@ -274,6 +274,7 @@ export const CHAIN_NAMES: Record<number, string> = {
   1: 'Ethereum',
   137: 'Polygon',
   43114: 'Avalanche',
+  5042: 'Arc',
 }
 
 /** Opens the connect sheet from anywhere on the page. */
