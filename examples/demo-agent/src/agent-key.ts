@@ -1,24 +1,14 @@
-import { generateAccessKey, type GeneratedAccessKey } from '@pitstop/sdk'
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { TIP20_DECIMALS, type RefillConfig } from '@pitstop/sdk'
+import { keystore } from '@pitstop/sdk/node'
+import { resolve } from 'node:path'
+import { parseUnits } from 'viem'
 
-/** The agent's access key lives only on this machine, in a git-ignored file. */
-export const KEY_FILE = resolve(import.meta.dirname, '../.pitstop/agent-key.json')
+/** Keys live only on this machine, in a git-ignored folder next to the demo agent. */
+export const store = keystore(process.env.PITSTOP_DIR ?? resolve(import.meta.dirname, '../.pitstop'))
 
 export const GUARD_URL = process.env.PITSTOP_URL ?? 'https://fuel.pitstopgas.workers.dev'
 
-export function loadKey(): GeneratedAccessKey | undefined {
-  if (!existsSync(KEY_FILE)) return undefined
-  return JSON.parse(readFileSync(KEY_FILE, 'utf8')) as GeneratedAccessKey
-}
-
-export function createKey(): GeneratedAccessKey {
-  const key = generateAccessKey()
-  mkdirSync(dirname(KEY_FILE), { recursive: true })
-  writeFileSync(KEY_FILE, JSON.stringify(key, null, 2) + '\n', { mode: 0o600 })
-  chmodSync(KEY_FILE, 0o600)
-  return key
-}
+export const loadKey = store.loadAccessKey
 
 export function requireWallet(): `0x${string}` {
   const wallet = process.env.AGENT_WALLET
@@ -27,4 +17,23 @@ export function requireWallet(): `0x${string}` {
     process.exit(1)
   }
   return wallet as `0x${string}`
+}
+
+/** Auto-refill settings from .env, with small defaults for testing. */
+export function refillConfig(): RefillConfig {
+  const home = store.loadHomeWallet()
+  if (!home) {
+    console.error('No home wallet yet. Run: pnpm home-wallet')
+    process.exit(1)
+  }
+  const usd = (name: string, fallback: string) => parseUnits(process.env[name] ?? fallback, TIP20_DECIMALS)
+  return {
+    agentWallet: requireWallet(),
+    home,
+    threshold: usd('REFILL_THRESHOLD', '1'),
+    amount: usd('REFILL_AMOUNT', '2'),
+    maxPerDay: usd('REFILL_MAX_PER_DAY', '6'),
+    apiKey: process.env.LIFI_API_KEY,
+    integrator: process.env.LIFI_INTEGRATOR,
+  }
 }

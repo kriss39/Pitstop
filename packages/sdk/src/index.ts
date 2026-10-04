@@ -36,3 +36,13 @@ export {
   updateAgentLimit,
 } from './guard.js'
 export type { AccessKeyRef, AgentKeyStatus, AuthorizeAgentKeyParameters, GeneratedAccessKey } from './guard.js'
+export {
+  generateHomeWallet,
+  getHomeBalances,
+  initialRefillState,
+  refillIfLow,
+  startAutoRefill,
+} from './refill.js'
+export type { HomeWallet, RefillConfig, RefillResult, RefillState } from './refill.js'
+export { listMppServices, MPP_SERVICES_URL } from './mpp.js'
+export type { MppService } from './mpp.js'

@@ -10,7 +10,10 @@
     "quote": "tsx --env-file-if-exists=../../.env src/quote.ts",
     "key": "tsx --env-file-if-exists=../../.env src/key.ts",
     "keystatus": "tsx --env-file-if-exists=../../.env src/keystatus.ts",
-    "spend": "tsx --env-file-if-exists=../../.env src/spend.ts"
+    "spend": "tsx --env-file-if-exists=../../.env src/spend.ts",
+    "home-wallet": "tsx --env-file-if-exists=../../.env src/home.ts",
+    "refill": "tsx --env-file-if-exists=../../.env src/refill.ts",
+    "watch": "tsx --env-file-if-exists=../../.env src/watch.ts"
   },
   "dependencies": {
     "@pitstop/sdk": "workspace:*",

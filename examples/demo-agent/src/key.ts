@@ -1,11 +1,13 @@
-import { createKey, GUARD_URL, KEY_FILE, loadKey } from './agent-key.js'
+import { GUARD_URL, store } from './agent-key.js'
 
-// Creates the agent's access key once. Prints only public data.
-const existing = loadKey()
-const key = existing ?? createKey()
+// Creates the agent's access key once; `pnpm key --new` replaces a revoked one.
+// Prints only public data.
+const rotate = process.argv.includes('--new')
+const existing = store.loadAccessKey()
+const key = existing && !rotate ? existing : store.createAccessKey({ rotate })
 
-console.log(existing ? 'Access key already exists.' : 'Created a new access key.')
-console.log(`Stored in     ${KEY_FILE} (never commit or share this file)`)
+console.log(existing && !rotate ? 'Access key already exists.' : rotate ? 'Created a new access key (old one kept as retired).' : 'Created a new access key.')
+console.log(`Stored in     ${store.accessKeyFile} (never commit or share this file)`)
 console.log(`Key address   ${key.address}`)
 console.log(`Key type      ${key.type}`)
 console.log()
