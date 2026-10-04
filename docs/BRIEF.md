@@ -1,6 +1,6 @@
 # Pitstop: Project Brief (2026-10-04)
 
-Status: Day 2 deployed (2026-10-04): https://fuel.pitstopgas.workers.dev serves the fuel page (Base + Solana), the LI.FI proxy and the D1 agent registry. Solana fuel tested with real funds (2 transfers, ~1 s each). Day 1: first real Base → Tempo fuel (see §13). Day 0: monorepo scaffolded, rules confirmed. Deadline: Colosseum Tempo track, **2026-10-12 23:59 PT** (= 2026-10-13 06:59 UTC).
+Status: Day 3 guard proven on mainnet (2026-10-04): the agent's access key is blocked by the protocol (`SpendingLimitExceeded`) once its daily limit is used. Day 2 deployed: https://fuel.pitstopgas.workers.dev serves the fuel page (Base + Solana), the LI.FI proxy and the D1 agent registry. Solana fuel tested with real funds (2 transfers, ~1 s each). Day 1: first real Base → Tempo fuel (see §13). Day 0: monorepo scaffolded, rules confirmed. Deadline: Colosseum Tempo track, **2026-10-12 23:59 PT** (= 2026-10-13 06:59 UTC).
 Legend: ✓ = verified on 2026-10-04 · ▲ = not verified yet; confirm before relying on it.
 
 ---
@@ -190,7 +190,8 @@ pitstop/
 | Monthly after launch | $0–5 |
 
 ## 10. Risks and open questions
-- ▲ **Account Keychain:** mostly answered by viem (see §4): a precompile, per-token limits with a period, expiry, call scopes with recipient allowlists, `updateLimit` and `revoke`. Still open: whether MPP clients (`mppx`) can sign with an access key, so payments count against its limit. Test on Day 3. If not, fall back to a guard contract or an off-chain policy in the SDK.
+- ✓ **Account Keychain (tested 2026-10-04):** limits are enforced by the protocol; fees paid in the limited token count against the limit (plan a small buffer, or sponsor fees with `feePayer`). Browser EVM wallets (Rabby/MetaMask) cannot sign key authorizations (raw-hash signature on a Tempo tx), so the wallet root is a passkey. `mppx` supports access-key accounts, so MPP payments should count against the limit (verify on Day 5).
+- (old note) Account Keychain was mostly answered by viem (see §4): a precompile, per-token limits with a period, expiry, call scopes with recipient allowlists, `updateLimit` and `revoke`. Still open: whether MPP clients (`mppx`) can sign with an access key, so payments count against its limit. Test on Day 3. If not, fall back to a guard contract or an off-chain policy in the SDK.
 - ✓ **Colosseum rules:** confirmed (see §4). Still open: the submission form's fields (video length, repo link, mainnet proof).
 - ▲ **Tempo MPP Credits overlap:** check what it covers and position Pitstop as crypto-native, cross-chain and guarded.
 - ✓ **viem / Tempo SDK:** viem ships the chain definition, TIP-20 actions and access-key actions.
@@ -215,6 +216,7 @@ Reports on the Desktop:
 
 | Date | What | Result |
 |---|---|---|
+| 2026-10-04 | Guard test. Owner passkey wallet `0x9Bd4…0bC0` (fuelled 4 USDC from Base → 3.989291 USDCe). Agent P256 key `0x3397…Bf80` authorized: 3 USDCe/day, 30 days | Spend 1 → ok (`0xf9f1fe57…8bf2`), spend 1 → ok (`0x0e07a790…3279`), spend 1 → **blocked: `Account keychain error: SpendingLimitExceeded`** (remaining 0.999796), spend 0.9 → ok (`0x245ca427…5e69`). Tx fees (~0.00018 USDCe) are paid from the same token and count against the limit. Rejected spends fail in simulation and cost nothing |
 | 2026-10-04 | Solana fuel ×2 from the live page: 2 USDC (Phantom `Bq2r…42Dq`) → agent on Tempo | Both DONE via Relay in ~1 s. Received 1.974477 and 1.974476 USDCe. Fees per transfer: LI.FI $0.005 + Relay $0.0205. Solana sigs `2hQa9o…ER97`, `457XXw…97ps`; Tempo txs `0xc26624c9…a6be`, `0x86b9e31e…f16e`. Agent balance now 5.943464 USDCe |
 | 2026-10-04 | Account subdomain changed to `pitstopgas`; Worker renamed to `fuel` (URL https://fuel.pitstopgas.workers.dev); old `pitstop` Worker deleted | Live checks pass; registry row kept (same D1) |
 | 2026-10-04 | Deployed Worker `pitstop` (web + `/lifi` proxy + `/api`), D1 `pitstop` (WEUR), secret `LIFI_API_KEY`; registered agent `0x0f7b…92fA` | Live checks pass: quote, status, 404 on other LI.FI paths, registry write/read, balance |

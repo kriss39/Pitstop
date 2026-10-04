@@ -27,7 +27,9 @@ try {
   console.log(`Sent. https://explore.tempo.xyz/tx/${hash}`)
   console.log(`Remaining after:  ${usd(after.remaining)} USDCe`)
 } catch (error) {
-  const msg = error instanceof Error ? (error as Error & { shortMessage?: string }).shortMessage ?? error.message : String(error)
-  console.log(`BLOCKED: ${msg.split('\n')[0]}`)
+  const msg = error instanceof Error ? error.message : String(error)
+  // The node explains keychain rejections in the "Details:" line, e.g. SpendingLimitExceeded.
+  const keychain = /Account keychain error: (\w+)/.exec(msg)?.[1]
+  console.log(keychain ? `BLOCKED by the guard: ${keychain}` : `FAILED: ${msg.split('\n')[0]}`)
   process.exitCode = 2
 }

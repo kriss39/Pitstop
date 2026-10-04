@@ -2,7 +2,7 @@ import { getBalance, totalUsd, TIP20_DECIMALS } from '@pitstop/sdk'
 import { formatUnits, isAddress } from 'viem'
 
 // Day 0: read the agent's balance. Refuel, MPP payments and the spending cap come later.
-const address = process.env.AGENT_ADDRESS ?? process.argv[2]
+const address = process.argv[2] ?? process.env.AGENT_ADDRESS
 if (!address || !isAddress(address)) {
   console.error('Usage: AGENT_ADDRESS=0x... pnpm start  (or pass the address as an argument)')
   process.exit(1)
