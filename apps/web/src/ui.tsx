@@ -9,7 +9,7 @@ import {
   type FuelTokenSymbol,
   type Spend,
 } from '@pitstop/sdk'
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { formatUnits, isAddress, type Address, type Hex } from 'viem'
 import { Account } from 'viem/tempo'
 
@@ -79,9 +79,15 @@ export function PanelHead({ num, title, children }: { num?: string; title: strin
 export function AddressField({ label, value, onChange, placeholder = '0x…' }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
   const ok = isAddress(value)
   const [edit, setEdit] = useState(!ok)
+  const input = useRef<HTMLInputElement>(null)
+  // A valid address set from outside (not typed here) shows as a chip.
+  useEffect(() => {
+    if (ok && document.activeElement !== input.current) setEdit(false)
+  }, [value])
   if (edit || !ok)
     return (
       <input
+        ref={input}
         className="swap-agent"
         value={value}
         onChange={(e) => onChange(e.target.value.trim())}

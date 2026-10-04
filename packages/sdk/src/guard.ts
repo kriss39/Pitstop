@@ -30,6 +30,11 @@ export function generateAccessKey(): GeneratedAccessKey {
   return { privateKey, address: Account.fromP256(privateKey).address, type: 'p256' }
 }
 
+/** Rebuilds an access key from its private key (e.g. from the PITSTOP_AGENT_KEY env variable). */
+export function accessKeyFromPrivateKey(privateKey: Hex): GeneratedAccessKey {
+  return { privateKey, address: Account.fromP256(privateKey).address, type: 'p256' }
+}
+
 /** The agent's signer: acts for `wallet` through its access key, within the key's limits. */
 export function agentAccount(privateKey: Hex, wallet: Address) {
   return Account.fromP256(privateKey, { access: wallet })

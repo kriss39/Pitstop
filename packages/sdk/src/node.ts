@@ -1,11 +1,12 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { generateAccessKey, type GeneratedAccessKey } from './guard.js'
+import { accessKeyFromPrivateKey, generateAccessKey, type GeneratedAccessKey } from './guard.js'
 import { generateHomeWallet, initialRefillState, type HomeWallet, type RefillState } from './refill.js'
 
 /**
  * Local keystore for an agent machine. Keys live in plain JSON files with mode 600 in
  * `dir` (default: `$PITSTOP_DIR` or `./.pitstop`). Keep that directory out of git.
+ * The access key can instead come from `$PITSTOP_AGENT_KEY` (a key made on the Guard page).
  */
 export function keystore(dir = process.env.PITSTOP_DIR ?? resolve(process.cwd(), '.pitstop')) {
   const path = (name: string) => join(dir, name)
@@ -24,7 +25,14 @@ export function keystore(dir = process.env.PITSTOP_DIR ?? resolve(process.cwd(),
     accessKeyFile: path('agent-key.json'),
     homeWalletFile: path('home-wallet.json'),
 
-    loadAccessKey: () => read<GeneratedAccessKey>('agent-key.json'),
+    loadAccessKey(): GeneratedAccessKey | undefined {
+      const fromEnv = process.env.PITSTOP_AGENT_KEY?.trim()
+      if (fromEnv) {
+        if (!/^0x[0-9a-fA-F]{64}$/.test(fromEnv)) throw new Error('PITSTOP_AGENT_KEY must be a 0x-prefixed 32-byte hex private key')
+        return accessKeyFromPrivateKey(fromEnv as `0x${string}`)
+      }
+      return read<GeneratedAccessKey>('agent-key.json')
+    },
     /** Creates the access key, or a fresh one with `rotate` (the old file is kept, renamed). */
     createAccessKey(opts: { rotate?: boolean } = {}): GeneratedAccessKey {
       if (existsSync(path('agent-key.json'))) {

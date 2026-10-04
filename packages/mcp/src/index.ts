@@ -21,6 +21,7 @@ import { z } from 'zod'
 // Configuration comes from the agent machine's environment:
 //   AGENT_WALLET   guarded Tempo wallet the agent spends from
 //   PITSTOP_DIR    folder with agent-key.json and home-wallet.json (default ./.pitstop)
+//   PITSTOP_AGENT_KEY  access key made on the Guard page (instead of agent-key.json)
 //   LIFI_API_KEY, LIFI_INTEGRATOR, REFILL_MAX_PER_DAY (default 6), PITSTOP_URL
 const store = keystore()
 const MAX_FUEL = 5

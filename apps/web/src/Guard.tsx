@@ -1,4 +1,14 @@
-import { authorizeAgentKey, DAY_SECONDS, FUEL_TOKENS, revokeAgentKey, TEMPO_TOKENS, updateAgentLimit, type FuelTokenSymbol } from '@pitstop/sdk'
+import {
+  authorizeAgentKey,
+  DAY_SECONDS,
+  FUEL_TOKENS,
+  generateAccessKey,
+  revokeAgentKey,
+  TEMPO_TOKENS,
+  updateAgentLimit,
+  type FuelTokenSymbol,
+  type GeneratedAccessKey,
+} from '@pitstop/sdk'
 import { useEffect, useMemo, useState } from 'react'
 import { isAddress, parseUnits, type Address, type Hex } from 'viem'
 import { Account, WebAuthnP256 } from 'viem/tempo'
@@ -23,6 +33,14 @@ const txLink = (hash: Hex) => `https://explore.tempo.xyz/tx/${hash}`
 const EXPIRY_DAYS = ['1', '7', '30', '90', '365']
 const keyFromLink = new URLSearchParams(window.location.search).get('key')
 
+/** Saves text as a file in the browser's downloads. */
+function download(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }))
+  const a = Object.assign(document.createElement('a'), { href: url, download: name })
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 /** The daily limit last set for a key on this device, as text for the input. */
 function limitText(key: string) {
   const known = isAddress(key) ? savedLimit.get(key) : undefined
@@ -44,6 +62,11 @@ export function Guard() {
   const [error, setError] = useState<string>()
   const [done, setDone] = useState<{ text: string; hash: Hex }>()
   const [confirmRevoke, setConfirmRevoke] = useState(false)
+  // A key made in this browser. Held in memory only: never stored, never sent anywhere.
+  const [newKey, setNewKey] = useState<GeneratedAccessKey>()
+  const [keySaved, setKeySaved] = useState(false)
+  const [handoff, setHandoff] = useState<'mcp' | 'env'>('mcp')
+  const [reveal, setReveal] = useState(false)
 
   const owner = useMemo(() => (cred ? Account.fromWebAuthnP256(cred) : undefined), [cred])
   const walletOptions = useMemo(() => list.map((o) => ({ id: o.id, address: ownerWallet(o) })), [list])
@@ -91,6 +114,16 @@ export function Guard() {
     setShowRestore(false)
     setDone(undefined)
     setError(undefined)
+    setNewKey(undefined)
+  }
+
+  const createKeyHere = () => {
+    const k = generateAccessKey()
+    setNewKey(k)
+    setKeyAddr(k.address)
+    setLimit(limitText(k.address))
+    setKeySaved(false)
+    setReveal(false)
   }
 
   const createPasskey = () =>
@@ -156,6 +189,15 @@ export function Guard() {
   const knownLimit = keyOk ? savedLimit.get(keyAddr) : undefined
 
   // One button, whose job depends on what's missing.
+  const madeHere = !!newKey && keyAddr.toLowerCase() === newKey.address.toLowerCase()
+  const agentEnv = { AGENT_WALLET: wallet ?? '', PITSTOP_AGENT_KEY: newKey?.privateKey ?? '', AGENT_TOKEN: token }
+  const handoffText =
+    handoff === 'env'
+      ? Object.entries(agentEnv).map(([k, v]) => `${k}=${v}`).join('\n') + '\n'
+      : JSON.stringify({ mcpServers: { pitstop: { command: 'node', args: ['/path/to/pitstop/packages/mcp/dist/index.js'], env: agentEnv } } }, null, 2)
+  const hidden = newKey ? `${newKey.privateKey.slice(0, 6)}${'•'.repeat(20)}${newKey.privateKey.slice(-4)}` : ''
+  const handoffShown = reveal || !newKey ? handoffText : handoffText.replace(newKey.privateKey, hidden)
+
   const cta = !cred
     ? { label: 'Create owner passkey', onClick: createPasskey }
     : agent.balance != null && !hasGas
@@ -166,6 +208,8 @@ export function Guard() {
           ? { label: 'This key is revoked', disabled: true }
           : !limitOk
             ? { label: 'Enter a daily limit', disabled: true }
+            : madeHere && !keySaved && !active
+              ? { label: 'Give the key to your agent first', disabled: true }
             : !active
               ? { label: 'Authorize with passkey', onClick: authorize, disabled: !daysOk || !status }
               : limitUnits === knownLimit
@@ -267,14 +311,50 @@ export function Guard() {
             <div className="swap-box">
               <div className="swap-top">
                 <span className="swap-label">Agent key</span>
-                {keyOk && keyAddr === keyFromLink && <span className="swap-ok">Filled from your agent’s link</span>}
+                {keyOk && keyAddr === keyFromLink && !madeHere && <span className="swap-ok">Filled from your agent’s link</span>}
+                {madeHere && <span className="swap-ok">Created in this browser</span>}
               </div>
               <AddressField label="Key" value={keyAddr} onChange={setKeyAddr} placeholder="Agent key address (0x…)" />
               {!keyOk && (
-                <p className="swap-text small">
-                  Your agent makes this key itself, so you never see its secret. Run <code>pnpm key</code> on the agent’s machine, or ask the
-                  agent for its <code>guard_link</code>. It prints a link that opens this page with the key filled in.
-                </p>
+                <div className="key-paths">
+                  <button className="primary small-btn" onClick={createKeyHere} disabled={busy}>Create a key here</button>
+                  <p className="swap-text small">
+                    Or let the agent make its own, so its secret never leaves its machine: run <code>pnpm key</code> there, or ask the agent
+                    for its <code>guard_link</code>. The link opens this page with the key filled in.
+                  </p>
+                </div>
+              )}
+              {madeHere && (
+                <div className="handoff">
+                  <div className="handoff-head">
+                    <b>Give this to your agent</b>
+                    <div className="seg" role="radiogroup" aria-label="Format">
+                      <button role="radio" aria-checked={handoff === 'mcp'} onClick={() => setHandoff('mcp')}>Claude / Cursor</button>
+                      <button role="radio" aria-checked={handoff === 'env'} onClick={() => setHandoff('env')}>.env file</button>
+                    </div>
+                  </div>
+                  <p className="swap-text small">
+                    {handoff === 'mcp'
+                      ? 'Paste into the agent’s .mcp.json, with the path to Pitstop on that machine.'
+                      : 'Put these lines in the .env file next to the agent. Pitstop’s SDK reads PITSTOP_AGENT_KEY.'}
+                  </p>
+                  <code className="block">{handoffShown}</code>
+                  <div className="row">
+                    <CopyButton text={handoffText} label="Copy" />
+                    {handoff === 'env' && (
+                      <button className="ghost small-btn" onClick={() => download('pitstop-agent.env', handoffText)}>Download .env</button>
+                    )}
+                    <button className="link-btn" onClick={() => setReveal((v) => !v)}>{reveal ? 'Hide key' : 'Show key'}</button>
+                  </div>
+                  <p className="note warn small">
+                    This is the agent’s secret key. Whoever has it can spend up to the daily limit until you revoke it. Pitstop doesn’t keep a
+                    copy, and it’s gone when you leave this page.
+                  </p>
+                  <label className="check">
+                    <input type="checkbox" checked={keySaved} onChange={(e) => setKeySaved(e.target.checked)} />
+                    I’ve given it to my agent
+                  </label>
+                </div>
               )}
               {keyAddr !== '' && !keyOk && <small className="note bad">That isn’t a valid 0x address.</small>}
             </div>
@@ -355,10 +435,10 @@ export function Guard() {
       {cred && keyOk && active && (
         <section className="swap next-step">
           <div className="swap-box">
-            <span className="swap-label">Last step, on the agent’s machine</span>
-            <code className="block">AGENT_WALLET={wallet}</code>
+            <span className="swap-label">{madeHere ? 'Done. Restart the agent with the config above, and it can pay.' : 'Last step, on the agent’s machine'}</span>
+            {!madeHere && <code className="block">AGENT_WALLET={wallet}</code>}
             <div className="row">
-              <CopyButton text={`AGENT_WALLET=${wallet}`} />
+              {!madeHere && <CopyButton text={`AGENT_WALLET=${wallet}`} />}
               <a className="btn ghost small-btn" href={`/dashboard?wallet=${wallet}&key=${keyAddr}`}>Open dashboard</a>
             </div>
           </div>

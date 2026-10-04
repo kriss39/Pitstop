@@ -12,7 +12,7 @@ import {
   type FuelQuote,
   type FuelTokenSymbol,
 } from '@pitstop/sdk'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   createPublicClient,
   createWalletClient,
@@ -514,6 +514,8 @@ function Breakdown({
   // With a gas token, the swap into a stablecoin and price moves cost something too.
   const { swapUsd, totalUsd, share } = costSummary(quote, native)
 
+  const sliderValue = Math.min(SLIDER_MAX, Math.max(MIN_USD, amountUsd ?? MIN_USD))
+
   return (
     <section id="breakdown" className={`breakdown rise${loading ? ' stale' : ''}`} aria-label="Where your money goes" aria-busy={loading}>
       <div className="bd-head">
@@ -530,8 +532,9 @@ function Breakdown({
             min={MIN_USD}
             max={SLIDER_MAX}
             step={5}
-            value={Math.min(SLIDER_MAX, Math.max(MIN_USD, amountUsd))}
+            value={sliderValue}
             onChange={(e) => onAmount(Number(e.target.value))}
+            style={{ '--f': (sliderValue - MIN_USD) / (SLIDER_MAX - MIN_USD) } as CSSProperties}
           />
           <div className="bd-chips">
             {[5, 10, 25, 50, 100].map((v) => (

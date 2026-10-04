@@ -30,6 +30,7 @@ export type {
   SolanaTransactionRequest,
 } from './fuel.js'
 export {
+  accessKeyFromPrivateKey,
   agentAccount,
   agentTransfer,
   authorizeAgentKey,

@@ -2,7 +2,7 @@ import { FUEL_TOKENS, type FuelTokenSymbol, type Spend } from '@pitstop/sdk'
 import { useMemo, useState } from 'react'
 import { isAddress } from 'viem'
 import { Account } from 'viem/tempo'
-import { AddressField, AgentBoard, APP_URL, BOT_HANDLE, CopyButton, FlagChip, PanelHead, savedKey, savedOwner, savedToken, short, usd, useAgent } from './ui'
+import { AddressField, AgentBoard, APP_URL, BOT_HANDLE, CopyButton, PanelHead, savedKey, savedOwner, savedToken, short, usd, useAgent } from './ui'
 
 /** Recipients seen on mainnet, labelled for the activity feed. */
 const KNOWN: Record<string, string> = {
@@ -27,6 +27,10 @@ function group(spends: Spend[]): Row[] {
   return [...rows.values()].sort((a, b) => b.time - a.time)
 }
 
+const payee = (to: string) => KNOWN[to.toLowerCase()]?.split(' · ')[0]
+/** Dollars with enough decimals that sub-cent MPP payments don't show as $0.00. */
+const amt = (v: bigint) => `$${usd(v, v < 100n ? 6 : v < 10_000n ? 4 : 2)}`
+
 const ago = (t: number) => {
   const s = Math.max(0, Math.floor(Date.now() / 1000) - t)
   return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.floor(s / 60)}m ago` : `${Math.floor(s / 3600)}h ago`
@@ -45,6 +49,26 @@ export function Dashboard() {
   const walletOk = isAddress(wallet)
   const agent = useAgent(walletOk ? wallet : undefined, isAddress(key) ? key : undefined, true, token)
   const rows = useMemo(() => (agent.spends ? group(agent.spends) : []), [agent.spends])
+  const [showFees, setShowFees] = useState(false)
+  const [showAll, setShowAll] = useState(false)
+  const payments = rows.filter((r) => r.amount > 0n)
+  const visible = (showFees ? rows : payments).slice(0, showAll ? undefined : 8)
+  const hiddenCount = (showFees ? rows : payments).length - visible.length
+  const spentTotal = rows.reduce((sum, r) => sum + r.amount + r.fee, 0n)
+  // Spending per service, largest first; other transfers last.
+  const byService = useMemo(() => {
+    const m = new Map<string, { name: string; total: bigint; count: number }>()
+    for (const r of payments) {
+      // Known MPP services by name; plain transfers to anyone else share one row.
+      const name = payee(r.to) ?? 'Other transfers'
+      const e = m.get(name) ?? { name, total: 0n, count: 0 }
+      e.total += r.amount + r.fee
+      e.count++
+      m.set(name, e)
+    }
+    const other = (e: { name: string }) => (e.name === 'Other transfers' ? 1 : 0)
+    return [...m.values()].sort((a, b) => other(a) - other(b) || (b.total > a.total ? 1 : -1))
+  }, [rows])
   const watchCmd = `/watch ${wallet} ${isAddress(key) ? key : ''}`.trim()
   const mcp = JSON.stringify(
     {
@@ -105,25 +129,46 @@ export function Dashboard() {
           <AgentBoard data={agent} keyAddress={isAddress(key) ? key : undefined} />
 
           <section className="panel">
-            <PanelHead title="Activity" />
-            {rows.length ? (
+            <PanelHead title="Activity">
+              <div className="seg small-seg" role="radiogroup" aria-label="Show">
+                <button role="radio" aria-checked={!showFees} onClick={() => setShowFees(false)}>Payments</button>
+                <button role="radio" aria-checked={showFees} onClick={() => setShowFees(true)}>All</button>
+              </div>
+            </PanelHead>
+            {rows.length > 0 && (
+              <p className="feed-sum">
+                <b>{payments.length}</b> {payments.length === 1 ? 'payment' : 'payments'} · <b>{amt(spentTotal)}</b> spent in the last ~15 hours, fees included
+              </p>
+            )}
+            {visible.length ? (
               <ul className="feed">
-                {rows.slice(0, 12).map((r) => (
-                  <li key={r.txHash}>
-                    <FlagChip flag={r.amount ? 'green' : 'none'}>{r.amount ? 'Paid' : 'Fee'}</FlagChip>
-                    <span style={{ minWidth: 0 }}>
-                      {r.amount ? KNOWN[r.to.toLowerCase()] ?? `To ${short(r.to)}` : 'Tempo network fee'}
-                      <br />
-                      <a className="when" href={`https://explore.tempo.xyz/tx/${r.txHash}`} target="_blank" rel="noreferrer">
-                        {ago(r.time)} · {short(r.txHash)} ↗
-                      </a>
-                    </span>
-                    <span className="amt">${usd(r.amount + r.fee, !r.amount ? 6 : r.amount + r.fee < 10_000n ? 4 : 2)}</span>
-                  </li>
-                ))}
+                {visible.map((r) => {
+                  const name = r.amount ? payee(r.to) : undefined
+                  return (
+                    <li key={r.txHash}>
+                      <span className={`avatar${r.amount ? '' : ' fee'}`} aria-hidden>
+                        {r.amount ? (name?.[0] ?? '→') : '⛽'}
+                      </span>
+                      <span style={{ minWidth: 0 }}>
+                        {r.amount ? (name ? <>{name} <span className="muted small">· MPP</span></> : <>To <code>{short(r.to)}</code></>) : 'Tempo network fee'}
+                        <br />
+                        <a className="when" href={`https://explore.tempo.xyz/tx/${r.txHash}`} target="_blank" rel="noreferrer">
+                          {ago(r.time)} · {short(r.txHash)} ↗
+                        </a>
+                      </span>
+                      <span className="amt">
+                        {amt(r.amount || r.fee)}
+                        {r.amount > 0n && r.fee > 0n && <small>+{amt(r.fee)} fee</small>}
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
             ) : (
               <p className="small muted">{agent.loading ? 'Reading the last ~15 hours from Tempo…' : 'No spending in the last ~15 hours.'}</p>
+            )}
+            {hiddenCount > 0 && (
+              <button className="link-btn" onClick={() => setShowAll(true)}>Show {hiddenCount} more</button>
             )}
             <p className="small muted">Payments the guard refused never reach the chain, so they cost nothing and don’t appear here.</p>
           </section>
@@ -139,6 +184,21 @@ export function Dashboard() {
             </div>
             <CopyButton text={`${APP_URL}/fuel?to=${wallet}`} label="Copy a funding link to share" className="link-btn" />
           </section>
+
+          {byService.length > 0 && (
+            <section className="panel">
+              <span className="swap-label">By service</span>
+              <ul className="by-service">
+                {byService.map((e) => (
+                  <li key={e.name}>
+                    <span>{e.name}<small> · {e.count} {e.name === 'Other transfers' ? (e.count === 1 ? 'transfer' : 'transfers') : e.count === 1 ? 'call' : 'calls'}</small></span>
+                    <b>{amt(e.total)}</b>
+                    <i style={{ width: `${Math.max(4, (Number(e.total) / Number(byService[0]!.total)) * 100)}%` }} aria-hidden />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section className="panel">
             <span className="swap-label">Telegram alerts</span>
