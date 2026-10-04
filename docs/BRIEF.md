@@ -235,3 +235,8 @@ Reports on the Desktop:
 - **Fee**: `PITSTOP_FEE = 0.0025` on quotes from the web app; optional (`PITSTOP_FEE`) for agent refills and MCP.
 - **Domain stays `fuel.pitstopgas.workers.dev`**: passkeys are bound to the hostname; moving domains would orphan owner passkeys.
 - **Positioning**: other agent wallets describe limits enforced in their backend; Pitstop shows a limit enforced by the Tempo protocol, live.
+
+## 15. Parked: open Pitstop to people, not only agents (2026-10-04)
+
+Idea: market Fuel as "move money to Tempo from any chain in one click" for anyone (send to your own Tempo address; the same 0x address works on Tempo). On hold at the user's request.
+Notes for when it resumes: LI.FI quotes for 10 USDC → Tempo, 2026-10-04: USDCe 9.9737 (Base, Across, ~2 s) / 9.9527 (Solana, Relay, ~1 s); PathUSD 9.9737 / 9.9448; USDT0 9.9364 / 9.9352 (Relay); USD1 no route. Likely changes: "Send to my wallet" button when an EVM wallet is connected, a receive-token selector (USDCe/PathUSD/USDT0), a higher per-transfer cap, and a landing section for people.
