@@ -137,7 +137,6 @@ There is deliberately no tool to change limits: the agent can't loosen its own l
 | `apps/web` | Landing, Fuel, Guard, Dashboard, Docs and Stats (Vite + React) |
 | `apps/api` | Cloudflare Worker: serves the app, LI.FI proxy, Solana balances, usage stats, Telegram webhook, alert cron (D1) |
 | `examples/demo-agent` | CLI agent: key, home wallet, spend, Codex + Nansen demo, refill, watch |
-| `docs/BRIEF.md` | Plan, decisions and the full mainnet log |
 
 `pnpm test` runs the unit tests (route checks, fee split, fee token, refill cap, input parsing, key status); CI runs build and tests on every push.
 

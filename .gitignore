@@ -16,7 +16,5 @@ dist/
 # Agent access keys (private; stay on the agent machine)
 .pitstop/
 
-# Personal Claude Code settings
-.claude/settings.local.json
-# Machine-specific MCP config (absolute paths)
+# Local MCP config (absolute paths)
 .mcp.json
