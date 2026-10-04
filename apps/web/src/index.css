@@ -51,7 +51,7 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 .topbar { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--line); }
 .topbar .shell { display: flex; align-items: center; gap: 24px; min-height: 60px; flex-wrap: wrap; padding-block: 8px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font: 900 26px/1 var(--display); letter-spacing: 0.02em; text-transform: uppercase; }
-.brand-mark { width: 26px; height: 26px; border-radius: 6px; background: var(--signal); display: grid; place-items: center; color: var(--signal-ink); font: 900 17px/1 var(--display); }
+.brand-mark { display: block; flex: none; }
 .nav { display: flex; gap: 4px; flex-wrap: wrap; }
 .nav a { text-decoration: none; font-weight: 600; font-size: 14px; padding: 6px 10px; border-radius: 8px; color: var(--muted); }
 .nav a:hover { color: var(--ink); }
@@ -95,6 +95,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .danger.solid { background: var(--bad); color: #fff; }
 .small-btn { padding: 8px 12px; font-size: 13px; border-radius: 8px; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 3px; flex-wrap: wrap; }
+.seg.chains { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .seg button { border: 0; padding: 9px 14px; border-radius: 8px; color: var(--muted); }
 .seg button[aria-checked='true'], .seg button[aria-selected='true'] { background: var(--ink); color: var(--bg); }
 
@@ -202,21 +203,16 @@ dialog.sheet::backdrop { background: rgb(0 0 0 / 0.5); }
 .story-card.play .scene span { animation: type-in 0.4s ease-out both; }
 @keyframes type-in { from { opacity: 0.25; transform: translateX(-8px); } }
 
-/* Problem vs Pitstop */
-.problems { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
-.problems-head, .problem-row { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; }
-.problems-head { padding: 12px 0; font: 600 12px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
-.problems-head span { display: inline-flex; align-items: center; gap: 8px; }
-.dot-flag { width: 16px; height: 10px; border-radius: 2px; display: inline-block; }
-.dot-flag.bad { background: var(--bad); }
-.dot-flag.ok { background: var(--ok); }
-.problem-row { padding: 22px 0; border-bottom: 1px solid var(--line); align-items: start; }
-.problem-title { font: 800 26px/1.05 var(--display); text-transform: uppercase; }
-.problem-today { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--bad) 55%, transparent); text-decoration-thickness: 1px; }
-.problem-fix { display: flex; flex-direction: column; gap: 10px; }
-.problem-fix p { font-weight: 500; }
-.proof-chip { align-self: flex-start; font: 600 12px/1 var(--mono); padding: 7px 10px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); }
-.m-label { display: none; font: 600 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+/* What's broken: three calm cards, problem above the rule, fix below */
+.fixes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.fix-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 24px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fix-n { font: 500 13px/1 var(--mono); color: var(--muted); }
+.fix-card h3 { font: 700 22px/1.15 var(--body); letter-spacing: -0.02em; margin: 0; }
+.fix-rule { display: flex; align-items: center; gap: 10px; margin-top: 6px; font: 500 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.fix-rule::before { content: ''; width: 18px; height: 3px; border-radius: 2px; background: var(--signal); }
+.fix-rule::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.fix-text { font-weight: 600; }
+.proof-chip { align-self: flex-start; margin-top: auto; font: 500 12px/1 var(--mono); padding: 7px 10px; border-radius: 4px; background: var(--signal); color: var(--signal-ink); }
 
 /* Built on: two partner slabs joined by a moving fuel line */
 .builton { display: grid; grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr); align-items: stretch; }
@@ -355,22 +351,20 @@ input, textarea { border-radius: 6px; }
 .chain-diagram.flow .node { margin-left: 44px; position: relative; z-index: 1; }
 .chain-diagram.flow .arrow { align-self: flex-start; margin-left: 58px; }
 .brand-mark { transition: transform 0.3s ease; }
-.brand:hover .brand-mark { transform: rotate(-8deg); }
+.brand:hover .brand-mark path:nth-of-type(2) { transform: rotate(12deg); transform-origin: 31px 28px; transition: transform 0.3s ease; }
 
 @media (max-width: 860px) {
-  .hero, .split, .dash, .docs-grid, .builton, .story, .problem-row, .docs-layout { grid-template-columns: 1fr; }
+  .hero, .split, .dash, .docs-grid, .builton, .story, .docs-layout, .fixes { grid-template-columns: 1fr; }
   .toc { position: static; flex-direction: row; overflow-x: auto; border-left: 0; border-bottom: 2px solid var(--line); }
   .toc a { white-space: nowrap; margin-left: 0; border-left: 0; border-bottom: 2px solid transparent; margin-bottom: -2px; }
   .toc a[aria-current='true'] { border-bottom-color: var(--signal); }
   .doc-flow, .doc-teaser { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .problems-head { display: none; }
-  .m-label { display: block; }
-  .problem-row { gap: 12px; }
   .fuelline { height: 64px; }
   .fuelline::before { left: 50%; right: auto; top: 0; bottom: 0; width: 6px; height: auto; margin: 0 0 0 -3px; background: repeating-linear-gradient(180deg, var(--signal) 0 18px, transparent 18px 30px); background-size: 6px 30px; animation: lane-v 0.9s linear infinite; }
   .proof, .steps4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 480px) {
+  .seg.chains { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid2, .quote dl, .proof, .steps4 { grid-template-columns: 1fr; }
   .partner-stats { grid-template-columns: 1fr 1fr 1fr; }
   .topbar .shell { gap: 10px; }

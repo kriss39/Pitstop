@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { BASE_CHAIN_ID, shortAddress, switchToBase, useWallet, walletLabel } from './wallet'
+import { CHAIN_NAMES, shortAddress, switchToBase, useWallet, walletLabel } from './wallet'
 
 const LINKS = [
   { href: '/fuel', label: 'Fuel' },
@@ -8,12 +8,25 @@ const LINKS = [
   { href: '/docs', label: 'Docs' },
 ]
 
+/** Pitstop mark: a P whose bowl is a fuel gauge. */
+export function LogoMark({ size = 28 }: { size?: number }) {
+  return (
+    <svg className="brand-mark" width={size} height={size} viewBox="0 0 64 64" aria-hidden>
+      <rect width="64" height="64" rx="14" fill="#FFD400" />
+      <rect x="15" y="12" width="9" height="40" rx="1.5" fill="#111" />
+      <path d="M24 16.5h7a11.5 11.5 0 0 1 0 23h-7" fill="none" stroke="#111" strokeWidth="9" />
+      <path d="M31 28 38.5 20.5" stroke="#111" strokeWidth="3.2" strokeLinecap="round" />
+      <circle cx="31" cy="28" r="3.2" fill="#111" />
+    </svg>
+  )
+}
+
 export function Header({ path }: { path: string }) {
   return (
     <header className="topbar">
       <div className="shell">
         <a href="/" className="brand" aria-label="Pitstop home">
-          <span className="brand-mark" aria-hidden>P</span>
+          <LogoMark size={28} />
           Pitstop
         </a>
         <nav className="nav" aria-label="Pages">
@@ -61,7 +74,8 @@ function ConnectButton() {
       setError(/rejected|denied/i.test(msg) ? 'You rejected the request in your wallet.' : msg.split('\n')[0])
     }
   }
-  const wrongChain = w.evm && w.evm.chainId !== BASE_CHAIN_ID
+  const chainName = w.evm ? CHAIN_NAMES[w.evm.chainId] : undefined
+  const wrongChain = w.evm && !chainName
 
   return (
     <>
@@ -70,7 +84,7 @@ function ConnectButton() {
           <button className="wallet-pill" onClick={() => open('base')} title={walletLabel(w.evm.wallet)}>
             {w.evm.wallet.icon ? <img src={w.evm.wallet.icon} alt="" /> : <span className="chain" />}
             {shortAddress(w.evm.account)}
-            {wrongChain && <span className="muted">· wrong network</span>}
+            <span className="muted">· {chainName ?? 'other network'}</span>
           </button>
         )}
         {w.solana && (
@@ -99,7 +113,7 @@ function ConnectButton() {
           </div>
           <div className="seg" role="tablist">
             <button role="tab" aria-selected={tab === 'base'} onClick={() => setTab('base')}>
-              Base (EVM)
+              EVM
             </button>
             <button role="tab" aria-selected={tab === 'solana'} onClick={() => setTab('solana')}>
               Solana
@@ -111,7 +125,7 @@ function ConnectButton() {
               <div className="wallet-list">
                 <div className="kv"><span>Wallet</span><span>{walletLabel(w.evm.wallet)}</span></div>
                 <div className="kv"><span>Address</span><code>{w.evm.account}</code></div>
-                <div className="kv"><span>Network</span><span>{wrongChain ? `Chain ${w.evm.chainId}` : 'Base'}</span></div>
+                <div className="kv"><span>Network</span><span>{chainName ?? `Chain ${w.evm.chainId} (not supported)`}</span></div>
                 <div className="row">
                   {wrongChain && (
                     <button className="primary small-btn" onClick={() => run(() => switchToBase(w.evm!.wallet.provider))}>

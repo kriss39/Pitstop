@@ -21,22 +21,41 @@ import {
   type Address,
   type PublicClient,
 } from 'viem'
-import { base } from 'viem/chains'
+import { arbitrum, avalanche, base, mainnet, optimism, polygon, type Chain } from 'viem/chains'
 import { PanelHead, short, TokenPicker, usd, useAgent } from './ui'
-import { BASE_CHAIN_ID, openConnect, switchToBase, useWallet } from './wallet'
+import { openConnect, switchChain, useWallet } from './wallet'
 
 /** Per-transfer cap on the web app. */
 const MAX_USDC = 5
 const LIFI_PROXY = '/lifi/v1'
 
-type Source = 'base' | 'solana'
-const SOURCES: Record<Source, { label: string; chainId: number; usdc: string; wallet: string; ttlMs: number }> = {
-  base: { label: 'Base', chainId: base.id, usdc: SOURCE_TOKENS.base.USDC, wallet: 'Rabby, MetaMask or Phantom', ttlMs: 60_000 },
-  // A Solana transaction carries a recent blockhash that expires in about a minute.
-  solana: { label: 'Solana', chainId: SOLANA_CHAIN_ID, usdc: SOURCE_TOKENS.solana.USDC, wallet: 'Phantom, MetaMask or another Solana wallet', ttlMs: 25_000 },
-}
+type Source = 'base' | 'arbitrum' | 'optimism' | 'ethereum' | 'polygon' | 'avalanche' | 'solana'
+type SourceInfo = { label: string; chainId: number; usdc: string; ttlMs: number; chain?: Chain; explorer?: string }
 
-const baseClient = createPublicClient({ chain: base, transport: http() }) as PublicClient
+const EVM_WALLETS = 'Rabby, MetaMask or Phantom'
+// Every route below was quoted to Tempo through the LI.FI Diamond on 2026-10-04.
+const SOURCES: Record<Source, SourceInfo> = {
+  base: { label: 'Base', chainId: base.id, usdc: SOURCE_TOKENS.base.USDC, ttlMs: 60_000, chain: base, explorer: 'https://basescan.org' },
+  arbitrum: { label: 'Arbitrum', chainId: arbitrum.id, usdc: SOURCE_TOKENS.arbitrum.USDC, ttlMs: 60_000, chain: arbitrum, explorer: 'https://arbiscan.io' },
+  optimism: { label: 'Optimism', chainId: optimism.id, usdc: SOURCE_TOKENS.optimism.USDC, ttlMs: 60_000, chain: optimism, explorer: 'https://optimistic.etherscan.io' },
+  ethereum: { label: 'Ethereum', chainId: mainnet.id, usdc: SOURCE_TOKENS.ethereum.USDC, ttlMs: 60_000, chain: mainnet, explorer: 'https://etherscan.io' },
+  polygon: { label: 'Polygon', chainId: polygon.id, usdc: SOURCE_TOKENS.polygon.USDC, ttlMs: 60_000, chain: polygon, explorer: 'https://polygonscan.com' },
+  avalanche: { label: 'Avalanche', chainId: avalanche.id, usdc: SOURCE_TOKENS.avalanche.USDC, ttlMs: 60_000, chain: avalanche, explorer: 'https://snowtrace.io' },
+  // A Solana transaction carries a recent blockhash that expires in about a minute.
+  solana: { label: 'Solana', chainId: SOLANA_CHAIN_ID, usdc: SOURCE_TOKENS.solana.USDC, ttlMs: 25_000 },
+}
+const SOURCE_KEYS = Object.keys(SOURCES) as Source[]
+
+const clients = new Map<number, PublicClient>()
+/** Read-only client for an EVM source chain, created on first use. */
+function clientFor(chain: Chain): PublicClient {
+  let c = clients.get(chain.id)
+  if (!c) {
+    c = createPublicClient({ chain, transport: http() }) as PublicClient
+    clients.set(chain.id, c)
+  }
+  return c
+}
 
 type Step = { label: string; state: 'todo' | 'active' | 'done' | 'error'; link?: { href: string; text: string }; t?: number }
 
@@ -48,12 +67,15 @@ export function Fuel() {
   const w = useWallet()
   const [agent, setAgent] = useState(params.get('to') ?? __DEFAULT_AGENT__)
   const [amount, setAmount] = useState('2')
-  const [source, setSource] = useState<Source>(params.get('from') === 'solana' ? 'solana' : 'base')
+  const [source, setSource] = useState<Source>(() => {
+    const f = params.get('from') as Source | null
+    return f && f in SOURCES ? f : 'base'
+  })
   const [receive, setReceive] = useState<FuelTokenSymbol>(() => {
     const t = params.get('token')
     return (FUEL_TOKENS as readonly string[]).includes(t ?? '') ? (t as FuelTokenSymbol) : 'USDCe'
   })
-  const [baseUsdc, setBaseUsdc] = useState<bigint>()
+  const [srcUsdc, setSrcUsdc] = useState<bigint>()
   const [quote, setQuote] = useState<FuelQuote>()
   const [quotedAt, setQuotedAt] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -67,17 +89,24 @@ export function Fuel() {
   const amountNum = Number(amount)
   const amountOk = Number.isFinite(amountNum) && amountNum > 0 && amountNum <= MAX_USDC
   const fromAmount = useMemo(() => (amountOk ? parseUnits(amount, 6) : 0n), [amount, amountOk])
-  const sender = source === 'base' ? w.evm?.account : w.solana?.address
-  const onBase = w.evm?.chainId === BASE_CHAIN_ID
-  const ready = source === 'base' ? !!w.evm && onBase : !!w.solana
-  const enoughFunds = source === 'solana' || (baseUsdc != null && baseUsdc >= fromAmount)
+  const isEvm = !!src.chain
+  const sender = isEvm ? w.evm?.account : w.solana?.address
+  const onChain = isEvm && w.evm?.chainId === src.chainId
+  const ready = isEvm ? !!w.evm && onChain : !!w.solana
+  const enoughFunds = !isEvm || (srcUsdc != null && srcUsdc >= fromAmount)
 
   useEffect(() => {
-    if (!w.evm) return setBaseUsdc(undefined)
-    baseClient
-      .readContract({ address: SOURCE_TOKENS.base.USDC, abi: erc20Abi, functionName: 'balanceOf', args: [w.evm.account] })
-      .then(setBaseUsdc, () => setBaseUsdc(undefined))
-  }, [w.evm?.account, finished])
+    setSrcUsdc(undefined)
+    if (!w.evm || !src.chain) return
+    clientFor(src.chain)
+      .readContract({ address: src.usdc as Address, abi: erc20Abi, functionName: 'balanceOf', args: [w.evm.account] })
+      .then(setSrcUsdc, () => setSrcUsdc(undefined))
+  }, [w.evm?.account, source, finished])
+
+  // Picking an EVM source asks the connected wallet to switch to it.
+  useEffect(() => {
+    if (w.evm && src.chain && w.evm.chainId !== src.chainId) void switchChain(w.evm.wallet.provider, src.chain).catch(() => {})
+  }, [source, !!w.evm])
 
   // A quote is only valid for the inputs it was made for.
   useEffect(() => setQuote(undefined), [agent, amount, source, sender, receive])
@@ -122,7 +151,7 @@ export function Fuel() {
         tx.kind === 'evm'
           ? [
               { label: 'Approve exactly this amount (if needed)', state: 'active' },
-              { label: 'Send on Base', state: 'todo' },
+              { label: `Send on ${src.label}`, state: 'todo' },
               { label: `Bridge to Tempo via ${q.tool}`, state: 'todo' },
               { label: 'Fuel arrives in the agent wallet', state: 'todo' },
             ]
@@ -139,17 +168,18 @@ export function Fuel() {
 
       let hash: string
       if (tx.kind === 'evm') {
-        const wallet = createWalletClient({ account: w.evm!.account, chain: base, transport: custom(w.evm!.wallet.provider) })
+        const wallet = createWalletClient({ account: w.evm!.account, chain: src.chain!, transport: custom(w.evm!.wallet.provider) })
+        const explorer = (h: string) => ({ href: `${src.explorer}/tx/${h}`, text: `${src.label} explorer ↗` })
         hash = await executeFuel({
           quote: q,
           wallet,
-          client: baseClient,
+          client: clientFor(src.chain!),
           onStep: (s) => {
-            if (s.step === 'approve') update(0, { link: { href: `https://basescan.org/tx/${s.hash}`, text: 'Basescan ↗' } })
+            if (s.step === 'approve') update(0, { link: explorer(s.hash) })
             if (s.step === 'approved') update(0, { state: 'done' })
             if (s.step === 'send') {
               if (list[0]!.state === 'active') update(0, { state: 'done', label: 'Approval already in place' })
-              update(1, { state: 'active', link: { href: `https://basescan.org/tx/${s.hash}`, text: 'Basescan ↗' } })
+              update(1, { state: 'active', link: explorer(s.hash) })
             }
             if (s.step === 'sent') update(1, { state: 'done' })
           },
@@ -184,7 +214,7 @@ export function Fuel() {
         <p className="eyebrow">01 · Fuel</p>
         <h1 className="title">Refuel an agent on Tempo</h1>
         <p className="lede">
-          Send USDC from Base or Solana. The agent receives USDC.e, PathUSD, USDT0 or OUSD on Tempo in seconds. You sign in your own wallet; Pitstop never holds funds.
+          Send USDC from Base, Arbitrum, Optimism, Ethereum, Polygon, Avalanche or Solana. The agent receives USDC.e, PathUSD, USDT0 or OUSD on Tempo in seconds. You sign in your own wallet; Pitstop never holds funds.
         </p>
       </header>
 
@@ -193,20 +223,22 @@ export function Fuel() {
         <label className="field">
           <span>Agent wallet on Tempo</span>
           <input id="agent" value={agent} onChange={(e) => setAgent(e.target.value.trim())} spellCheck={false} placeholder="0x…" />
-          <small className={agentOk ? 'muted' : 'note bad'}>
-            {agentOk
-              ? `Tempo balance $${target.balance != null ? usd(target.balance) : '…'} · ${short(agent)}`
-              : 'Enter the agent’s 0x address. Fuel can’t be recalled once sent.'}
-          </small>
+          {agentOk ? (
+            <small className="muted">Tempo balance ${target.balance != null ? usd(target.balance) : '…'} · {short(agent)}</small>
+          ) : agent ? (
+            <small className="note bad">That isn’t a valid 0x address. Check it before sending; fuel can’t be recalled.</small>
+          ) : (
+            <small className="muted">Paste the agent’s wallet address. Create one on the Guard page if you don’t have it yet.</small>
+          )}
         </label>
       </section>
 
       <section className="panel">
         <PanelHead num="B" title="Pay from" />
-        <div className="seg" role="radiogroup" aria-label="Source chain">
-          {(Object.keys(SOURCES) as Source[]).map((key) => (
+        <div className="seg chains" role="radiogroup" aria-label="Source chain">
+          {SOURCE_KEYS.map((key) => (
             <button key={key} role="radio" aria-checked={source === key} onClick={() => setSource(key)} disabled={busy}>
-              {SOURCES[key].label} USDC
+              {SOURCES[key].label}
             </button>
           ))}
         </div>
@@ -225,12 +257,12 @@ export function Fuel() {
         </label>
         <div className="row">
           {!sender ? (
-            <button className="primary" onClick={() => openConnect(source)}>
-              Connect {source === 'base' ? 'a Base wallet' : 'a Solana wallet'}
+            <button className="primary" onClick={() => openConnect(isEvm ? 'base' : 'solana')}>
+              Connect {isEvm ? 'an EVM wallet' : 'a Solana wallet'}
             </button>
-          ) : source === 'base' && !onBase ? (
-            <button className="primary" onClick={() => run(() => switchToBase(w.evm!.wallet.provider))} disabled={busy}>
-              Switch to Base
+          ) : isEvm && !onChain ? (
+            <button className="primary" onClick={() => run(() => switchChain(w.evm!.wallet.provider, src.chain!))} disabled={busy}>
+              Switch to {src.label}
             </button>
           ) : (
             <button className="primary" onClick={() => run(newQuote)} disabled={busy || !agentOk || !amountOk || !ready}>
@@ -240,12 +272,12 @@ export function Fuel() {
           {sender && (
             <span className="small muted">
               From {short(sender)} on {src.label}
-              {source === 'base' && baseUsdc != null && ` · ${usd(baseUsdc)} USDC`}
+              {isEvm && srcUsdc != null && ` · ${usd(srcUsdc)} USDC`}
             </span>
           )}
         </div>
-        {source === 'base' && ready && baseUsdc != null && !enoughFunds && (
-          <p className="note bad">This wallet has less USDC on Base than the amount.</p>
+        {isEvm && ready && srcUsdc != null && !enoughFunds && (
+          <p className="note bad">This wallet has less USDC on {src.label} than the amount.</p>
         )}
       </section>
 

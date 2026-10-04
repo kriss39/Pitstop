@@ -55,7 +55,7 @@ const PROOF = [
 const STEP_LINKS: Record<string, string> = { Fuel: '/fuel', Guard: '/guard', Pay: '/docs#pay', Refill: '/docs#agent' }
 
 const STEPS = [
-  { n: '01', t: 'Fuel', d: 'Send USDC from Base or Solana. It lands on Tempo in seconds.' },
+  { n: '01', t: 'Fuel', d: 'Send USDC from Base, Arbitrum, Optimism, Ethereum, Polygon, Avalanche or Solana. It lands on Tempo in seconds.' },
   { n: '02', t: 'Guard', d: 'Your passkey sets a daily limit for the agent.' },
   { n: '03', t: 'Pay', d: 'The agent pays APIs per call, within its limit.' },
   { n: '04', t: 'Refill', d: 'Low on fuel? The agent tops itself up.' },
@@ -65,8 +65,8 @@ const BUILT_ON = [
   {
     name: 'LI.FI',
     role: 'Brings the fuel in',
-    line: 'Routes USDC from Base and Solana into Tempo through Across and Relay.',
-    stats: [['~1–2 s', 'to Tempo'], ['75', 'chains'], ['0.25%', 'Pitstop fee']],
+    line: 'Routes USDC from seven chains into Tempo through Across and Relay.',
+    stats: [['~1–2 s', 'to Tempo'], ['7', 'source chains'], ['0.25%', 'Pitstop fee']],
     href: 'https://li.fi',
   },
   {
@@ -152,26 +152,11 @@ function Story() {
 }
 
 
-/** The industry problem, today vs with Pitstop, each backed by a mainnet result. */
+/** What's broken for agents today, and the fix, each backed by a mainnet result. */
 const PROBLEMS = [
-  {
-    p: 'The money is in the wrong place',
-    today: 'Agents pay on Tempo, but people keep their dollars on Solana, Base or Ethereum. Every top-up means bridges, gas tokens and minutes of clicking.',
-    fix: 'One link fuels the agent from any chain. LI.FI finds the route and the USDC lands on Tempo in one to two seconds.',
-    proof: 'Base → Tempo in ~2 s',
-  },
-  {
-    p: 'Trust depends on someone’s server',
-    today: 'To cap an agent you either trust a provider’s backend to say no, or you hand it a full wallet and hope nothing goes wrong.',
-    fix: 'The limit lives in the account itself. Tempo refuses any payment past it, so there is no server to bypass and nothing to hack around.',
-    proof: '5th call refused by Tempo',
-  },
-  {
-    p: 'Owners are flying blind',
-    today: 'You find out the agent ran dry, or spent too much, after it already happened.',
-    fix: 'A live pit wall shows fuel, limit left and every payment. Telegram pings you when fuel is low, and the agent can refill itself.',
-    proof: 'Alerts and auto-refill on mainnet',
-  },
+  { n: '01', p: 'The money is on other chains', pain: 'Every top-up means bridges, gas tokens and minutes of clicking.', fix: 'One link fuels the agent from any of seven chains in seconds.', proof: 'Base → Tempo in ~2 s' },
+  { n: '02', p: 'Nothing stops a runaway agent', pain: 'Limits live in someone’s backend, or nowhere at all.', fix: 'The daily limit lives on-chain. Tempo refuses anything past it.', proof: '5th call refused by Tempo' },
+  { n: '03', p: 'You find out too late', pain: 'The agent runs dry or overspends before you notice.', fix: 'A live dashboard, Telegram alerts, and refills on autopilot.', proof: 'Alerts and auto-refill live' },
 ]
 
 function Problems() {
@@ -179,26 +164,16 @@ function Problems() {
     <section id="problem">
       <div className="shell" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div className="lane" />
-        <h2 className="section">The problem, and how Pitstop fixes it</h2>
-        <p className="lede">
-          AI agents are starting to pay for the services they use, one request at a time. The payments rail exists. What’s missing is the
-          pit crew: a fast way to get money to the agent, and a hard limit on what it can do with it.
-        </p>
-        <div className="problems">
-          <div className="problems-head" aria-hidden>
-            <span />
-            <span><i className="dot-flag bad" /> Today</span>
-            <span><i className="dot-flag ok" /> With Pitstop</span>
-          </div>
+        <h2 className="section">What’s broken for agents today</h2>
+        <div className="fixes">
           {PROBLEMS.map((row) => (
-            <div className="problem-row" key={row.p}>
-              <h3 className="problem-title">{row.p}</h3>
-              <p className="problem-today"><span className="m-label">Today</span>{row.today}</p>
-              <div className="problem-fix">
-                <span className="m-label">With Pitstop</span>
-                <p>{row.fix}</p>
-                <span className="proof-chip">✓ {row.proof}</span>
-              </div>
+            <div className="fix-card" key={row.n}>
+              <span className="fix-n">{row.n}</span>
+              <h3>{row.p}</h3>
+              <p className="muted">{row.pain}</p>
+              <div className="fix-rule"><span>Pitstop</span></div>
+              <p className="fix-text">{row.fix}</p>
+              <span className="proof-chip">✓ {row.proof}</span>
             </div>
           ))}
         </div>

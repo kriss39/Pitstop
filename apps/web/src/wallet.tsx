@@ -1,7 +1,8 @@
 import { getWallets } from '@wallet-standard/app'
 import type { Wallet, WalletAccount } from '@wallet-standard/base'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { Address, EIP1193Provider } from 'viem'
+import { numberToHex, type Address, type Chain, type EIP1193Provider } from 'viem'
+import { base } from 'viem/chains'
 
 /** An injected EVM wallet announced through EIP-6963 (one entry per extension). */
 export type EvmWalletInfo = { uuid: string; name: string; icon: string; rdns: string; provider: EIP1193Provider }
@@ -199,9 +200,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       solWallets,
       solana,
       connectEvm: async (wallet) => {
-        if (await attach(wallet, true)) {
-          await switchToBase(wallet.provider).catch(() => {})
-        }
+        await attach(wallet, true)
       },
       connectSolana: async (info) => {
         if (!(await attachSolana(info, false))) throw new Error(`${info.name} returned no Solana account.`)
@@ -243,9 +242,9 @@ export const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
 
 export const BASE_CHAIN_ID = 8453
 
-/** Asks the wallet to switch to Base, adding the network first if the wallet doesn't know it. */
-export async function switchToBase(provider: EIP1193Provider) {
-  const chainId = '0x2105'
+/** Asks the wallet to switch networks, adding the network first if the wallet doesn't know it. */
+export async function switchChain(provider: EIP1193Provider, chain: Chain) {
+  const chainId = numberToHex(chain.id)
   try {
     await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId }] })
   } catch (error) {
@@ -255,14 +254,26 @@ export async function switchToBase(provider: EIP1193Provider) {
       params: [
         {
           chainId,
-          chainName: 'Base',
-          nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-          rpcUrls: ['https://mainnet.base.org'],
-          blockExplorerUrls: ['https://basescan.org'],
+          chainName: chain.name,
+          nativeCurrency: chain.nativeCurrency,
+          rpcUrls: [...chain.rpcUrls.default.http],
+          blockExplorerUrls: chain.blockExplorers ? [chain.blockExplorers.default.url] : undefined,
         },
       ],
     })
   }
+}
+
+export const switchToBase = (provider: EIP1193Provider) => switchChain(provider, base)
+
+/** Names of the EVM networks Pitstop can fuel from. */
+export const CHAIN_NAMES: Record<number, string> = {
+  8453: 'Base',
+  42161: 'Arbitrum',
+  10: 'Optimism',
+  1: 'Ethereum',
+  137: 'Polygon',
+  43114: 'Avalanche',
 }
 
 /** Opens the connect sheet from anywhere on the page. */

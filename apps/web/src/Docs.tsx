@@ -128,7 +128,7 @@ export function Docs() {
             </p>
             <div className="doc-flow">
               {[
-                ['Fuel', 'USDC from Base or Solana'],
+                ['Fuel', 'USDC from 7 chains'],
                 ['Guard', 'Your passkey sets a daily limit'],
                 ['Pay', 'The agent pays APIs per call'],
                 ['Refill', 'It tops itself up when low'],
@@ -153,7 +153,7 @@ export function Docs() {
                 wallet.
               </li>
               <li>
-                <b>Fuel the wallet.</b> On <a href="/fuel">Fuel</a>, send 1–5 USDC to that address from Base or Solana. A little of it pays
+                <b>Fuel the wallet.</b> On <a href="/fuel">Fuel</a>, send 1–5 USDC to that address from Base, Arbitrum, Optimism, Ethereum, Polygon, Avalanche or Solana. A little of it pays
                 Tempo fees.
               </li>
               <li>
@@ -175,6 +175,11 @@ export function Docs() {
               <thead><tr><th>From</th><th>Wallets</th><th>Typical time</th><th>Route</th></tr></thead>
               <tbody>
                 <tr><td>Base</td><td>Rabby, MetaMask, Phantom</td><td>~2 s</td><td>Across</td></tr>
+                <tr><td>Arbitrum</td><td>Rabby, MetaMask</td><td>~2 s</td><td>Across</td></tr>
+                <tr><td>Optimism</td><td>Rabby, MetaMask</td><td>~2 s</td><td>Across</td></tr>
+                <tr><td>Ethereum</td><td>Rabby, MetaMask</td><td>~2 s</td><td>Across (higher gas)</td></tr>
+                <tr><td>Polygon</td><td>Rabby, MetaMask</td><td>~2 s</td><td>Across</td></tr>
+                <tr><td>Avalanche</td><td>Rabby, MetaMask</td><td>~1 s</td><td>Relay</td></tr>
                 <tr><td>Solana</td><td>Phantom, MetaMask, Solflare, Backpack</td><td>~1 s</td><td>Relay</td></tr>
               </tbody>
             </table></div>
