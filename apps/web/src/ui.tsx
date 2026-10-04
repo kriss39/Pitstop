@@ -1,9 +1,12 @@
 import {
+  FUEL_TOKENS,
   getAgentKeyStatus,
   getBalance,
   getRecentSpends,
+  TEMPO_TOKENS,
   totalUsd,
   type AgentKeyStatus,
+  type FuelTokenSymbol,
   type Spend,
 } from '@pitstop/sdk'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
@@ -122,6 +125,8 @@ export function countdown(toUnix?: number) {
 }
 
 export type AgentData = {
+  /** Token the key is scoped to; limits and spends are read for it. */
+  token: FuelTokenSymbol
   balance?: bigint
   status?: AgentKeyStatus
   spends?: Spend[]
@@ -131,22 +136,22 @@ export type AgentData = {
 }
 
 /** Live view of an agent wallet and (optionally) its access key. */
-export function useAgent(wallet?: string, key?: string, withSpends = false): AgentData {
-  const [data, setData] = useState<Omit<AgentData, 'refresh'>>({ loading: false })
+export function useAgent(wallet?: string, key?: string, withSpends = false, token: FuelTokenSymbol = 'USDCe'): AgentData {
+  const [data, setData] = useState<Omit<AgentData, 'refresh'>>({ token, loading: false })
   const refresh = useCallback(async () => {
-    if (!wallet || !isAddress(wallet)) return setData({ loading: false })
+    if (!wallet || !isAddress(wallet)) return setData({ token, loading: false })
     setData((d) => ({ ...d, loading: true, error: undefined }))
     try {
       const [balances, status, spends] = await Promise.all([
         getBalance({ address: wallet as Address }),
-        key && isAddress(key) ? getAgentKeyStatus({ wallet: wallet as Address, key: key as Address }) : undefined,
-        withSpends ? getRecentSpends({ wallet: wallet as Address }).catch(() => undefined) : undefined,
+        key && isAddress(key) ? getAgentKeyStatus({ wallet: wallet as Address, key: key as Address, token: TEMPO_TOKENS[token] }) : undefined,
+        withSpends ? getRecentSpends({ wallet: wallet as Address, token: TEMPO_TOKENS[token] }).catch(() => undefined) : undefined,
       ])
-      setData({ balance: totalUsd(balances), status, spends, loading: false })
+      setData({ token, balance: totalUsd(balances), status, spends, loading: false })
     } catch (e) {
       setData((d) => ({ ...d, loading: false, error: e instanceof Error ? e.message.split('\n')[0] : String(e) }))
     }
-  }, [wallet, key, withSpends])
+  }, [wallet, key, withSpends, token])
   useEffect(() => void refresh(), [refresh])
   return { ...data, refresh }
 }
@@ -164,7 +169,7 @@ export function AgentBoard({ data, keyAddress, tag = 'P1' }: { data: AgentData; 
       <div>
         <div className="board-big">${data.status ? money(data.status.remaining) : '–'}</div>
         <div className="board-label">
-          left today{view.limit != null && ` · of ${view.limitEstimated ? '≈' : ''}$${money(view.limit)}`}
+          {data.token} left today{view.limit != null && ` · of ${view.limitEstimated ? '≈' : ''}$${money(view.limit)}`}
         </div>
       </div>
       {view.cells && <FuelCells {...view.cells} />}
@@ -204,6 +209,38 @@ export const savedKey = {
       // ignore
     }
   },
+}
+
+/** The token the owner scoped a key to on this device (USDCe if never set). */
+export const savedToken = {
+  get(key?: string): FuelTokenSymbol {
+    try {
+      const v = key ? localStorage.getItem(`pitstop.token.${key.toLowerCase()}`) : null
+      return (FUEL_TOKENS as readonly string[]).includes(v ?? '') ? (v as FuelTokenSymbol) : 'USDCe'
+    } catch {
+      return 'USDCe'
+    }
+  },
+  set(key: string, token: FuelTokenSymbol) {
+    try {
+      localStorage.setItem(`pitstop.token.${key.toLowerCase()}`, token)
+    } catch {
+      // ignore
+    }
+  },
+}
+
+/** Token picker for the four stablecoins Pitstop can deliver to Tempo. */
+export function TokenPicker({ value, onChange, disabled, label }: { value: FuelTokenSymbol; onChange: (t: FuelTokenSymbol) => void; disabled?: boolean; label: string }) {
+  return (
+    <div className="seg" role="radiogroup" aria-label={label}>
+      {FUEL_TOKENS.map((t) => (
+        <button key={t} role="radio" aria-checked={value === t} onClick={() => onChange(t)} disabled={disabled}>
+          {t}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 /** The daily limit the owner set for a key on this device (the chain only exposes what's left). */

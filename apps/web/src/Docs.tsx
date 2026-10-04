@@ -170,7 +170,7 @@ export function Docs() {
           </Section>
 
           <Section id="fuel" title="Fuel an agent">
-            <p>Send USDC from another chain; the agent receives USDCe on Tempo.</p>
+            <p>Send USDC from another chain. The agent receives one of four stablecoins on Tempo: USDC.e (default), PathUSD, USDT0 or OUSD.</p>
             <div className="table-wrap"><table className="doc-table">
               <thead><tr><th>From</th><th>Wallets</th><th>Typical time</th><th>Route</th></tr></thead>
               <tbody>
@@ -192,8 +192,8 @@ export function Docs() {
             <div className="table-wrap"><table className="doc-table">
               <thead><tr><th>Control</th><th>What it does</th></tr></thead>
               <tbody>
-                <tr><td>Daily limit</td><td>The most USDCe the agent can spend in 24 hours. Tempo fees count too.</td></tr>
-                <tr><td>Scope</td><td>The key can only spend USDCe.</td></tr>
+                <tr><td>Daily limit</td><td>The most the agent can spend in 24 hours, in that stablecoin. Tempo fees paid in it count too.</td></tr>
+                <tr><td>Scope</td><td>The one stablecoin the key may spend: USDC.e, PathUSD, USDT0 or OUSD. Pick the one your agent’s services charge in.</td></tr>
                 <tr><td>Expiry</td><td>After this date the key stops working on its own.</td></tr>
               </tbody>
             </table></div>
@@ -227,6 +227,7 @@ export function Docs() {
               <thead><tr><th>Name</th><th>Meaning</th><th>Default</th></tr></thead>
               <tbody>
                 <tr><td><code>AGENT_WALLET</code></td><td>The agent’s wallet (from Guard)</td><td>required</td></tr>
+                <tr><td><code>AGENT_TOKEN</code></td><td>Stablecoin the key is scoped to</td><td>USDCe</td></tr>
                 <tr><td><code>REFILL_THRESHOLD</code></td><td>Refill when fuel is below this (USDC)</td><td>1</td></tr>
                 <tr><td><code>REFILL_AMOUNT</code></td><td>How much to send per refill</td><td>2</td></tr>
                 <tr><td><code>REFILL_MAX_PER_DAY</code></td><td>Most the agent may refill in a day</td><td>6</td></tr>
@@ -272,7 +273,7 @@ export function Docs() {
             <div className="table-wrap"><table className="doc-table">
               <thead><tr><th>Command</th><th>What it does</th></tr></thead>
               <tbody>
-                <tr><td><code>/watch &lt;wallet&gt; &lt;key&gt;</code></td><td>Alert me about this agent</td></tr>
+                <tr><td><code>/watch &lt;wallet&gt; &lt;key&gt; [token]</code></td><td>Alert me about this agent (token defaults to USDCe)</td></tr>
                 <tr><td><code>/status</code></td><td>Show my agents now</td></tr>
                 <tr><td><code>/stop</code></td><td>Stop all alerts</td></tr>
               </tbody>
@@ -314,6 +315,7 @@ export function Docs() {
                 ['What does it cost?', 'A few cents in bridge fees plus 0.25%. Each quote shows the total before you sign.'],
                 ['What if I lose my passkey?', 'You can’t change the limit any more, but the key still expires. Keep balances small.'],
                 ['Can I use it without the CLI?', 'Yes. Fuel and Guard work in the browser; the CLI and MCP are for running the agent.'],
+                ['Which stablecoin should I use?', 'USDC.e works with most MPP services today, and it’s the default. The MPP docs now recommend OUSD; pick it if your services charge in OUSD.'],
                 ['Which services can the agent pay?', 'Any MPP service on Tempo, such as Nansen and Dune. See mpp.dev for the list.'],
               ].map(([q, a]) => (
                 <details key={q}>

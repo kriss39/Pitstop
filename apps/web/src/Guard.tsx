@@ -1,8 +1,8 @@
-import { authorizeAgentKey, DAY_SECONDS, revokeAgentKey, updateAgentLimit } from '@pitstop/sdk'
-import { useMemo, useState } from 'react'
+import { authorizeAgentKey, DAY_SECONDS, revokeAgentKey, TEMPO_TOKENS, updateAgentLimit, type FuelTokenSymbol } from '@pitstop/sdk'
+import { useEffect, useMemo, useState } from 'react'
 import { isAddress, parseUnits, type Address, type Hex } from 'viem'
 import { Account, WebAuthnP256 } from 'viem/tempo'
-import { AgentBoard, CopyButton, describeKey, PanelHead, savedKey, savedLimit, short, usd, useAgent } from './ui'
+import { AgentBoard, CopyButton, describeKey, PanelHead, savedKey, savedLimit, savedToken, short, TokenPicker, usd, useAgent } from './ui'
 
 /** The owner's passkey reference. Public data: the private key stays in the authenticator. */
 type OwnerCredential = { id: string; publicKey: Hex; createdAt?: string }
@@ -32,6 +32,7 @@ export function Guard() {
   const [justCreated, setJustCreated] = useState(false)
   const [importText, setImportText] = useState('')
   const [keyAddr, setKeyAddr] = useState(() => new URLSearchParams(window.location.search).get('key') ?? savedKey.get() ?? '')
+  const [token, setToken] = useState<FuelTokenSymbol>(() => savedToken.get(keyAddr))
   const [limit, setLimit] = useState('5')
   const [days, setDays] = useState('30')
   const [busy, setBusy] = useState(false)
@@ -42,7 +43,11 @@ export function Guard() {
   const owner = useMemo(() => (cred ? Account.fromWebAuthnP256(cred) : undefined), [cred])
   const wallet = owner?.address as Address | undefined
   const keyOk = isAddress(keyAddr)
-  const agent = useAgent(wallet, keyOk ? keyAddr : undefined, true)
+  // Each key remembers the token it was scoped to on this device.
+  useEffect(() => {
+    if (keyOk) setToken(savedToken.get(keyAddr))
+  }, [keyAddr, keyOk])
+  const agent = useAgent(wallet, keyOk ? keyAddr : undefined, true, token)
   const status = agent.status
   const view = describeKey(status, agent.spends, keyOk ? savedLimit.get(keyAddr) : undefined)
   const limitNum = Number(limit)
@@ -91,21 +96,23 @@ export function Guard() {
       const hash = await authorizeAgentKey({
         owner: owner!,
         key: { address: keyAddr as Address, type: 'p256' },
+        token: TEMPO_TOKENS[token],
         limit: parseUnits(limit, 6),
         expiry: Math.floor(Date.now() / 1000) + daysNum * DAY_SECONDS,
       })
       savedKey.set(keyAddr)
       savedLimit.set(keyAddr, parseUnits(limit, 6))
-      setDone({ text: `Key authorized: up to ${limit} USDCe a day for ${days} days.`, hash })
+      savedToken.set(keyAddr, token)
+      setDone({ text: `Key authorized: up to ${limit} ${token} a day for ${days} days.`, hash })
       await agent.refresh()
     })
 
   const changeLimit = () =>
     run(async () => {
-      const hash = await updateAgentLimit({ owner: owner!, key: keyAddr as Address, limit: parseUnits(limit, 6) })
+      const hash = await updateAgentLimit({ owner: owner!, key: keyAddr as Address, token: TEMPO_TOKENS[token], limit: parseUnits(limit, 6) })
       savedKey.set(keyAddr)
       savedLimit.set(keyAddr, parseUnits(limit, 6))
-      setDone({ text: `Daily limit set to ${limit} USDCe.`, hash })
+      setDone({ text: `Daily limit set to ${limit} ${token}.`, hash })
       await agent.refresh()
     })
 
@@ -123,7 +130,7 @@ export function Guard() {
         <h1 className="title">Keep your agent on a leash</h1>
         <p className="lede">
           Your passkey owns the agent’s wallet. The agent only gets a spending key with three controls: a daily
-          <b> limit</b>, the <b>scope</b> of USDCe it may spend, and an <b>expiry</b>. Tempo enforces them on-chain; the agent can’t change them.
+          <b> limit</b>, the <b>scope</b> (which stablecoin it may spend), and an <b>expiry</b>. Tempo enforces them on-chain; the agent can’t change them.
         </p>
       </header>
 
@@ -195,9 +202,16 @@ export function Guard() {
             <span>Agent key address (printed by <code>pnpm key</code> on the agent’s machine)</span>
             <input id="key" value={keyAddr} onChange={(e) => setKeyAddr(e.target.value.trim())} spellCheck={false} placeholder="0x…" />
           </label>
+          <div className="field">
+            <span>Token the agent may spend (scope)</span>
+            <TokenPicker value={token} onChange={setToken} disabled={busy || !!active} label="Token scope" />
+            <small className="muted">
+              {active ? `This key is scoped to ${token}. To change the token, revoke it and authorize a new key.` : 'Pick the token your agent’s services charge in. USDC.e fits most MPP services; the MPP docs recommend OUSD.'}
+            </small>
+          </div>
           <div className="grid2">
             <label className="field">
-              <span>Daily limit (USDCe)</span>
+              <span>Daily limit ({token})</span>
               <input id="limit" inputMode="decimal" value={limit} onChange={(e) => setLimit(e.target.value.replace(',', '.'))} />
             </label>
             <label className="field">
@@ -205,7 +219,7 @@ export function Guard() {
               <input id="days" inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} disabled={!!active} />
             </label>
           </div>
-          <p className="small muted">Tempo fees for the agent’s payments come out of the same daily limit, so leave a small buffer.</p>
+          <p className="small muted">Tempo fees for the agent’s payments come out of the same daily limit when they’re paid in {token}, so leave a small buffer.</p>
 
           <div className="row">
             {!active && (

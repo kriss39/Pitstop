@@ -1,6 +1,6 @@
 import { agentAccount, agentTransfer, getAgentKeyStatus, TIP20_DECIMALS } from '@pitstop/sdk'
 import { formatUnits, isAddress, parseUnits } from 'viem'
-import { loadKey, requireWallet } from './agent-key.js'
+import { AGENT_TOKEN, AGENT_TOKEN_ADDRESS, loadKey, requireWallet } from './agent-key.js'
 
 // Spends USDCe from the guarded wallet through the agent's access key.
 //   pnpm spend [amount=1] [to=OWNER_ADDRESS]
@@ -18,14 +18,14 @@ if (!to || !isAddress(to)) {
 const wallet = requireWallet()
 const usd = (v: bigint) => formatUnits(v, TIP20_DECIMALS)
 
-const before = await getAgentKeyStatus({ wallet, key: key.address })
-console.log(`Remaining before: ${usd(before.remaining)} USDCe. Sending ${amount} USDCe to ${to}…`)
+const before = await getAgentKeyStatus({ wallet, key: key.address, token: AGENT_TOKEN_ADDRESS })
+console.log(`Remaining before: ${usd(before.remaining)} ${AGENT_TOKEN}. Sending ${amount} ${AGENT_TOKEN} to ${to}…`)
 
 try {
-  const hash = await agentTransfer({ account: agentAccount(key.privateKey, wallet), to, amount: parseUnits(amount, 6) })
-  const after = await getAgentKeyStatus({ wallet, key: key.address })
+  const hash = await agentTransfer({ account: agentAccount(key.privateKey, wallet), to, amount: parseUnits(amount, 6), token: AGENT_TOKEN_ADDRESS })
+  const after = await getAgentKeyStatus({ wallet, key: key.address, token: AGENT_TOKEN_ADDRESS })
   console.log(`Sent. https://explore.tempo.xyz/tx/${hash}`)
-  console.log(`Remaining after:  ${usd(after.remaining)} USDCe`)
+  console.log(`Remaining after:  ${usd(after.remaining)} ${AGENT_TOKEN}`)
 } catch (error) {
   const msg = error instanceof Error ? error.message : String(error)
   // The node explains keychain rejections in the "Details:" line, either at execution

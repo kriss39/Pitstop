@@ -1,8 +1,8 @@
-import type { Spend } from '@pitstop/sdk'
+import { FUEL_TOKENS, type FuelTokenSymbol, type Spend } from '@pitstop/sdk'
 import { useMemo, useState } from 'react'
 import { isAddress } from 'viem'
 import { Account } from 'viem/tempo'
-import { AgentBoard, APP_URL, BOT_HANDLE, CopyButton, FlagChip, PanelHead, savedKey, savedOwner, short, usd, useAgent } from './ui'
+import { AgentBoard, APP_URL, BOT_HANDLE, CopyButton, FlagChip, PanelHead, savedKey, savedOwner, savedToken, short, TokenPicker, usd, useAgent } from './ui'
 
 /** Recipients seen on mainnet, labelled for the activity feed. */
 const KNOWN: Record<string, string> = {
@@ -37,8 +37,12 @@ export function Dashboard() {
   const ownerWallet = useMemo(() => (owner ? Account.fromWebAuthnP256(owner).address : undefined), [owner?.publicKey])
   const [wallet, setWallet] = useState(q.get('wallet') ?? ownerWallet ?? '')
   const [key, setKey] = useState(q.get('key') ?? savedKey.get() ?? '')
+  const [token, setToken] = useState<FuelTokenSymbol>(() => {
+    const t = q.get('token')
+    return (FUEL_TOKENS as readonly string[]).includes(t ?? '') ? (t as FuelTokenSymbol) : savedToken.get(q.get('key') ?? savedKey.get())
+  })
   const walletOk = isAddress(wallet)
-  const agent = useAgent(walletOk ? wallet : undefined, isAddress(key) ? key : undefined, true)
+  const agent = useAgent(walletOk ? wallet : undefined, isAddress(key) ? key : undefined, true, token)
   const rows = useMemo(() => (agent.spends ? group(agent.spends) : []), [agent.spends])
   const watchCmd = `/watch ${wallet} ${isAddress(key) ? key : ''}`.trim()
   const mcp = JSON.stringify(
@@ -72,6 +76,10 @@ export function Dashboard() {
             <span>Agent key (optional)</span>
             <input id="dkey" value={key} onChange={(e) => setKey(e.target.value.trim())} placeholder="0x…" spellCheck={false} />
           </label>
+        </div>
+        <div className="field">
+          <span>Token the key spends</span>
+          <TokenPicker value={token} onChange={setToken} label="Token" />
         </div>
         {!walletOk && (
           <p className="small muted">
@@ -118,7 +126,7 @@ export function Dashboard() {
             <section className="panel">
               <PanelHead title="Fuel tank" />
               <div className="tank">${agent.balance != null ? usd(agent.balance) : '–'}</div>
-              <p className="small muted">USDCe on Tempo · {short(wallet)}</p>
+              <p className="small muted">All stablecoins on Tempo · {short(wallet)}</p>
               <div className="row">
                 <a className="btn primary" href={`/fuel?to=${wallet}`}>Fuel now</a>
                 <CopyButton text={`${APP_URL}/fuel?to=${wallet}`} label="Copy funding link" />

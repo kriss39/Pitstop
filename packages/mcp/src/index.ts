@@ -7,8 +7,11 @@ import {
   getBalance,
   listMppServices,
   refillIfLow,
+  FUEL_TOKENS,
   SOURCE_TOKENS,
+  TEMPO_TOKENS,
   TIP20_DECIMALS,
+  type FuelTokenSymbol,
   totalUsd,
 } from '@pitstop/sdk'
 import { keystore } from '@pitstop/sdk/node'
@@ -21,6 +24,11 @@ import { z } from 'zod'
 //   LIFI_API_KEY, LIFI_INTEGRATOR, REFILL_MAX_PER_DAY (default 6), PITSTOP_URL
 const store = keystore()
 const MAX_FUEL = 5
+// Token the agent's key is scoped to (AGENT_TOKEN, default USDCe).
+const AGENT_TOKEN: FuelTokenSymbol = (FUEL_TOKENS as readonly string[]).includes(process.env.AGENT_TOKEN ?? '')
+  ? (process.env.AGENT_TOKEN as FuelTokenSymbol)
+  : 'USDCe'
+const tokenArg = z.enum(FUEL_TOKENS).optional().describe(`Token to receive on Tempo; defaults to ${AGENT_TOKEN}`)
 const GUARD_URL = process.env.PITSTOP_URL ?? 'https://fuel.pitstopgas.workers.dev'
 const lifi = {
   apiKey: process.env.LIFI_API_KEY,
@@ -67,13 +75,14 @@ server.registerTool(
   {
     title: 'Quote a refuel',
     description: "Ask LI.FI how much USDCe the agent would receive on Tempo for N USDC from its home wallet on Base. Read-only.",
-    inputSchema: { amount: z.number().positive().max(MAX_FUEL).describe(`USDC to send, at most ${MAX_FUEL}`) },
+    inputSchema: { amount: z.number().positive().max(MAX_FUEL).describe(`USDC to send, at most ${MAX_FUEL}`), token: tokenArg },
   },
-  async ({ amount }) => {
+  async ({ amount, token }) => {
     const wallet = agentWallet()
     const home = store.loadHomeWallet()
     if (!wallet || !home) return fail('Set AGENT_WALLET and create a home wallet (pnpm home-wallet) first.')
     const q = await fuelQuote({
+      toToken: token ?? AGENT_TOKEN,
       ...lifi,
       fromChain: SOURCE_TOKENS.base.chainId,
       fromToken: SOURCE_TOKENS.base.USDC,
@@ -98,9 +107,9 @@ server.registerTool(
     title: 'Refuel the agent now',
     description:
       "Send USDC from the agent's home wallet on Base to its Tempo wallet through LI.FI and wait until it arrives (usually seconds). Spends real money: at most 5 USDC per call and REFILL_MAX_PER_DAY per day.",
-    inputSchema: { amount: z.number().positive().max(MAX_FUEL).describe(`USDC to send, at most ${MAX_FUEL}`) },
+    inputSchema: { amount: z.number().positive().max(MAX_FUEL).describe(`USDC to send, at most ${MAX_FUEL}`), token: tokenArg },
   },
-  async ({ amount }) => {
+  async ({ amount, token }) => {
     const wallet = agentWallet()
     const home = store.loadHomeWallet()
     if (!wallet || !home) return fail('Set AGENT_WALLET and create a home wallet (pnpm home-wallet) first.')
@@ -111,6 +120,7 @@ server.registerTool(
           ...lifi,
           agentWallet: wallet,
           home,
+          token: token ?? AGENT_TOKEN,
           threshold: 0n,
           amount: parseUnits(String(amount), 6),
           maxPerDay: parseUnits(process.env.REFILL_MAX_PER_DAY ?? '6', 6),
@@ -123,7 +133,7 @@ server.registerTool(
       if (result.action === 'skipped') return fail(`Not fueled: ${result.reason}. Sent today: ${usd(BigInt(state.sentToday))} USDC.`)
       return text({
         status: result.status.status,
-        received: result.status.receivedAmount != null ? `${usd(result.status.receivedAmount)} USDCe` : undefined,
+        received: result.status.receivedAmount != null ? `${usd(result.status.receivedAmount)} ${token ?? AGENT_TOKEN}` : undefined,
         sourceTx: `https://basescan.org/tx/${result.txHash}`,
         tempoTx: result.status.receivingTxHash ? `https://explore.tempo.xyz/tx/${result.status.receivingTxHash}` : undefined,
         sentTodayUsd: usd(BigInt(state.sentToday)),
@@ -147,13 +157,14 @@ server.registerTool(
     const wallet = agentWallet()
     const key = store.loadAccessKey()
     if (!wallet || !key) return fail('Set AGENT_WALLET and create an access key (pnpm key) first.')
-    const s = await getAgentKeyStatus({ wallet, key: key.address })
+    const s = await getAgentKeyStatus({ wallet, key: key.address, token: TEMPO_TOKENS[AGENT_TOKEN] })
     const iso = (t?: number) => (t ? new Date(t * 1000).toISOString() : undefined)
     return text({
       wallet,
       key: key.address,
       state: s.revoked ? 'revoked' : s.authorized ? 'active' : 'not authorized',
-      remainingUsd: usd(s.remaining),
+      token: AGENT_TOKEN,
+      remaining: usd(s.remaining),
       periodEnds: iso(s.periodEnd),
       expires: iso(s.expiry),
     })

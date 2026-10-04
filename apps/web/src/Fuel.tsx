@@ -5,7 +5,9 @@ import {
   SOLANA_CHAIN_ID,
   SOURCE_TOKENS,
   waitForFuel,
+  FUEL_TOKENS,
   type FuelQuote,
+  type FuelTokenSymbol,
 } from '@pitstop/sdk'
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -20,7 +22,7 @@ import {
   type PublicClient,
 } from 'viem'
 import { base } from 'viem/chains'
-import { PanelHead, short, usd, useAgent } from './ui'
+import { PanelHead, short, TokenPicker, usd, useAgent } from './ui'
 import { BASE_CHAIN_ID, openConnect, switchToBase, useWallet } from './wallet'
 
 /** Per-transfer cap on the web app. */
@@ -47,6 +49,10 @@ export function Fuel() {
   const [agent, setAgent] = useState(params.get('to') ?? __DEFAULT_AGENT__)
   const [amount, setAmount] = useState('2')
   const [source, setSource] = useState<Source>(params.get('from') === 'solana' ? 'solana' : 'base')
+  const [receive, setReceive] = useState<FuelTokenSymbol>(() => {
+    const t = params.get('token')
+    return (FUEL_TOKENS as readonly string[]).includes(t ?? '') ? (t as FuelTokenSymbol) : 'USDCe'
+  })
   const [baseUsdc, setBaseUsdc] = useState<bigint>()
   const [quote, setQuote] = useState<FuelQuote>()
   const [quotedAt, setQuotedAt] = useState(0)
@@ -74,7 +80,7 @@ export function Fuel() {
   }, [w.evm?.account, finished])
 
   // A quote is only valid for the inputs it was made for.
-  useEffect(() => setQuote(undefined), [agent, amount, source, sender])
+  useEffect(() => setQuote(undefined), [agent, amount, source, sender, receive])
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true)
@@ -96,6 +102,7 @@ export function Fuel() {
       fromAmount,
       fromAddress: sender!,
       toAddress: agent as Address,
+      toToken: receive,
       integrator: __LIFI_INTEGRATOR__,
       fee: PITSTOP_FEE,
       baseUrl: LIFI_PROXY,
@@ -164,7 +171,7 @@ export function Fuel() {
       update(bridge, { state: 'done' })
       update(bridge + 1, {
         state: 'done',
-        label: `Arrived: ${status.receivedAmount != null ? usd(status.receivedAmount, 4) : '?'} USDCe`,
+        label: `Arrived: ${status.receivedAmount != null ? usd(status.receivedAmount, 4) : '?'} ${receive}`,
         link: status.receivingTxHash ? { href: `https://explore.tempo.xyz/tx/${status.receivingTxHash}`, text: 'Tempo ↗' } : undefined,
       })
       setFinished(Date.now() - t0)
@@ -177,7 +184,7 @@ export function Fuel() {
         <p className="eyebrow">01 · Fuel</p>
         <h1 className="title">Refuel an agent on Tempo</h1>
         <p className="lede">
-          Send USDC from Base or Solana. The agent receives USDCe on Tempo in seconds. You sign in your own wallet; Pitstop never holds funds.
+          Send USDC from Base or Solana. The agent receives USDC.e, PathUSD, USDT0 or OUSD on Tempo in seconds. You sign in your own wallet; Pitstop never holds funds.
         </p>
       </header>
 
@@ -202,6 +209,14 @@ export function Fuel() {
               {SOURCES[key].label} USDC
             </button>
           ))}
+        </div>
+        <div className="field">
+          <span>Agent receives on Tempo</span>
+          <TokenPicker value={receive} onChange={setReceive} disabled={busy} label="Token received on Tempo" />
+          <small className="muted">
+            {receive === 'USDCe' ? 'USDC.e: the default for Pitstop guards and most MPP services.' : receive === 'OUSD' ? 'OpenUSD: the token the MPP docs recommend.' : `Use ${receive} if the services your agent pays charge in it.`}{' '}
+            A guarded key only spends the token it was authorized for.
+          </small>
         </div>
         <label className="field">
           <span>Amount (USDC, up to {MAX_USDC} per transfer)</span>

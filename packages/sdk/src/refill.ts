@@ -12,6 +12,7 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { base } from 'viem/chains'
 import { getBalance } from './balance.js'
 import { executeFuel, fuelQuote, SOURCE_TOKENS, waitForFuel, type FuelStatus, type LifiOptions } from './fuel.js'
+import type { FuelTokenSymbol } from './tokens.js'
 
 /**
  * The agent's home wallet: a small Base hot wallet the agent controls, used only to
@@ -39,7 +40,9 @@ export type RefillConfig = LifiOptions & {
   /** The agent's Tempo wallet (the guarded wallet). */
   agentWallet: Address
   home: HomeWallet
-  /** Refill when the agent's USDCe balance is below this (6 decimals). */
+  /** Token the agent spends and receives on Tempo. Defaults to USDCe. */
+  token?: FuelTokenSymbol
+  /** Refill when the agent's balance of `token` is below this (6 decimals). */
   threshold: bigint
   /** USDC to send from Base per refill (6 decimals). */
   amount: bigint
@@ -76,8 +79,9 @@ export async function refillIfLow(
   const log = onProgress ?? (() => {})
   const s: RefillState = state.day === today() ? { ...state } : { day: today(), sentToday: '0', lastRefillAt: state.lastRefillAt }
 
-  const [usdce] = await getBalance({ address: config.agentWallet, tokens: ['USDCe'] })
-  const balance = usdce!.raw
+  const token = config.token ?? 'USDCe'
+  const [held] = await getBalance({ address: config.agentWallet, tokens: [token] })
+  const balance = held!.raw
   if (!config.force && balance >= config.threshold)
     return { result: { action: 'skipped', reason: 'above-threshold', balance }, state: s }
 
@@ -95,8 +99,8 @@ export async function refillIfLow(
 
   log(
     config.force
-      ? `Manual refuel: agent USDCe ${formatUnits(balance, 6)}; fueling ${formatUnits(config.amount, 6)} USDC from Base`
-      : `Agent USDCe ${formatUnits(balance, 6)} < ${formatUnits(config.threshold, 6)}; fueling ${formatUnits(config.amount, 6)} USDC from Base`,
+      ? `Manual refuel: agent ${token} ${formatUnits(balance, 6)}; fueling ${formatUnits(config.amount, 6)} USDC from Base`
+      : `Agent ${token} ${formatUnits(balance, 6)} < ${formatUnits(config.threshold, 6)}; fueling ${formatUnits(config.amount, 6)} USDC from Base`,
   )
   const quote = await fuelQuote({
     ...config,
@@ -105,7 +109,7 @@ export async function refillIfLow(
     fromAmount: config.amount,
     fromAddress: account.address,
     toAddress: config.agentWallet,
-    toToken: 'USDCe',
+    toToken: token,
   })
   const client = baseClient(config.baseRpcUrl)
   const wallet = createWalletClient({ account, chain: base, transport: http(config.baseRpcUrl) })
@@ -116,7 +120,7 @@ export async function refillIfLow(
   s.lastRefillAt = Date.now()
 
   const status = await waitForFuel({ ...config, txHash, fromChain: base.id })
-  log(`  bridge ${status.status}${status.receivedAmount != null ? `, received ${formatUnits(status.receivedAmount, 6)} USDCe` : ''}`)
+  log(`  bridge ${status.status}${status.receivedAmount != null ? `, received ${formatUnits(status.receivedAmount, 6)} ${token}` : ''}`)
   return { result: { action: 'refilled', balance, txHash, status }, state: s }
 }
 

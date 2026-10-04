@@ -1,4 +1,4 @@
-import { getAgentKeyStatus, getBalance, totalUsd } from '@pitstop/sdk'
+import { FUEL_TOKENS, getAgentKeyStatus, getBalance, TEMPO_TOKENS, totalUsd, type FuelTokenSymbol } from '@pitstop/sdk'
 import { formatUnits, getAddress, isAddress, type Address } from 'viem'
 
 export const APP_URL = 'https://fuel.pitstopgas.workers.dev'
@@ -12,7 +12,13 @@ type AgentRow = {
   min_balance_usd: number
   telegram_chat_id: string
   access_key: string | null
+  token: string
   alert_state: string
+}
+
+const asToken = (t?: string | null): FuelTokenSymbol => {
+  const match = FUEL_TOKENS.find((x) => x.toLowerCase() === (t ?? '').toLowerCase())
+  return match ?? 'USDCe'
 }
 
 /** Which alerts were already sent, so each condition notifies once. */
@@ -30,16 +36,16 @@ export async function sendTelegram(token: string, chatId: string, text: string) 
 }
 
 /** Describes an agent's wallet and key in a few lines. */
-async function describe(wallet: Address, key?: Address | null) {
+async function describe(wallet: Address, key?: Address | null, token: FuelTokenSymbol = 'USDCe') {
   const balance = totalUsd(await getBalance({ address: wallet }))
   const lines = [`Wallet ${wallet}`, `Balance $${usd(balance)}`]
   if (key) {
-    const s = await getAgentKeyStatus({ wallet, key })
+    const s = await getAgentKeyStatus({ wallet, key, token: TEMPO_TOKENS[token] })
     lines.push(
       s.revoked
         ? 'Key: revoked'
         : s.authorized
-          ? `Key: active, $${usd(s.remaining)} left today`
+          ? `Key: active, ${usd(s.remaining)} ${token} left today`
           : 'Key: not authorized yet',
     )
   }
@@ -49,7 +55,7 @@ async function describe(wallet: Address, key?: Address | null) {
 const HELP = [
   'Pitstop alerts for your AI agents.',
   '',
-  '/watch <wallet> [key] — alert me when this agent runs low or hits its daily limit',
+  '/watch <wallet> [key] [token] — alert me when this agent runs low or hits its daily limit (token: USDCe, PathUSD, USDT0 or OUSD; default USDCe)',
   '/status — show watched agents',
   '/stop — stop all alerts for this chat',
 ].join('\n')
@@ -64,28 +70,29 @@ export async function handleTelegramUpdate(db: D1Database, token: string, update
   const [cmd, ...args] = text.split(/\s+/)
 
   if (cmd === '/watch') {
-    const [wallet, key] = args
+    const [wallet, key, tokenArg] = args
     if (!wallet || !isAddress(wallet) || (key && !isAddress(key)))
-      return reply('Usage: /watch <wallet 0x…> [access key 0x…]')
+      return reply('Usage: /watch <wallet 0x…> [access key 0x…] [token]')
     const address = getAddress(wallet)
     const accessKey = key ? getAddress(key) : null
+    const token = asToken(tokenArg)
     await db
       .prepare(
-        `INSERT INTO agents (address, telegram_chat_id, access_key) VALUES (?1, ?2, ?3)
-         ON CONFLICT(address) DO UPDATE SET telegram_chat_id = ?2, access_key = coalesce(?3, access_key), alert_state = '{}'`,
+        `INSERT INTO agents (address, telegram_chat_id, access_key, token) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(address) DO UPDATE SET telegram_chat_id = ?2, access_key = coalesce(?3, access_key), token = ?4, alert_state = '{}'`,
       )
-      .bind(address, String(chatId), accessKey)
+      .bind(address, String(chatId), accessKey, token)
       .run()
-    return reply(`Watching this agent.\n\n${await describe(address, accessKey)}`)
+    return reply(`Watching this agent.\n\n${await describe(address, accessKey, token)}`)
   }
 
   if (cmd === '/status') {
     const { results } = await db
-      .prepare('SELECT address, access_key FROM agents WHERE telegram_chat_id = ?1')
+      .prepare('SELECT address, access_key, token FROM agents WHERE telegram_chat_id = ?1')
       .bind(String(chatId))
-      .all<{ address: Address; access_key: Address | null }>()
+      .all<{ address: Address; access_key: Address | null; token: string }>()
     if (!results.length) return reply('No agents watched yet. Send /watch <wallet> [key].')
-    const parts = await Promise.all(results.map((r) => describe(r.address, r.access_key)))
+    const parts = await Promise.all(results.map((r) => describe(r.address, r.access_key, asToken(r.token))))
     return reply(parts.join('\n\n'))
   }
 
@@ -100,7 +107,7 @@ export async function handleTelegramUpdate(db: D1Database, token: string, update
 /** Cron: checks every watched agent and sends each alert once. */
 export async function checkAgents(db: D1Database, token: string) {
   const { results } = await db
-    .prepare('SELECT address, name, min_balance_usd, telegram_chat_id, access_key, alert_state FROM agents WHERE telegram_chat_id IS NOT NULL')
+    .prepare('SELECT address, name, min_balance_usd, telegram_chat_id, access_key, token, alert_state FROM agents WHERE telegram_chat_id IS NOT NULL')
     .all<AgentRow>()
 
   for (const agent of results) {
@@ -121,7 +128,7 @@ export async function checkAgents(db: D1Database, token: string) {
       } else delete next.lowBalanceAt
 
       if (agent.access_key) {
-        const s = await getAgentKeyStatus({ wallet, key: getAddress(agent.access_key) })
+        const s = await getAgentKeyStatus({ wallet, key: getAddress(agent.access_key), token: TEMPO_TOKENS[asToken(agent.token)] })
         if (s.revoked && !state.revoked) {
           await send(`🔒 ${label}: the agent key was revoked. It can no longer spend.`)
           next.revoked = true

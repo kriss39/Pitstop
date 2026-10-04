@@ -1,4 +1,4 @@
-import { TIP20_DECIMALS, type RefillConfig } from '@pitstop/sdk'
+import { FUEL_TOKENS, TEMPO_TOKENS, TIP20_DECIMALS, type FuelTokenSymbol, type RefillConfig } from '@pitstop/sdk'
 import { keystore } from '@pitstop/sdk/node'
 import { resolve } from 'node:path'
 import { parseUnits } from 'viem'
@@ -9,6 +9,12 @@ export const store = keystore(process.env.PITSTOP_DIR ?? resolve(import.meta.dir
 export const GUARD_URL = process.env.PITSTOP_URL ?? 'https://fuel.pitstopgas.workers.dev'
 
 export const loadKey = store.loadAccessKey
+
+/** Token the agent's key is scoped to (AGENT_TOKEN, default USDCe). */
+export const AGENT_TOKEN: FuelTokenSymbol = (FUEL_TOKENS as readonly string[]).includes(process.env.AGENT_TOKEN ?? '')
+  ? (process.env.AGENT_TOKEN as FuelTokenSymbol)
+  : 'USDCe'
+export const AGENT_TOKEN_ADDRESS = TEMPO_TOKENS[AGENT_TOKEN]
 
 export function requireWallet(): `0x${string}` {
   const wallet = process.env.AGENT_WALLET
@@ -30,6 +36,7 @@ export function refillConfig(): RefillConfig {
   return {
     agentWallet: requireWallet(),
     home,
+    token: AGENT_TOKEN,
     threshold: usd('REFILL_THRESHOLD', '1'),
     amount: usd('REFILL_AMOUNT', '2'),
     maxPerDay: usd('REFILL_MAX_PER_DAY', '6'),
