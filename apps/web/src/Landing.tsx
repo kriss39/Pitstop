@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { SetupLine, UseCases } from './AgentKit'
+import { BudgetPlanner, SetupLine, UseCases } from './AgentKit'
 import { BOT_HANDLE, CopyButton, DEMO_DASHBOARD, FlagChip, FuelCells } from './basics'
 
 /** The real mainnet demo, replayed: 4 Nansen calls at $0.01, the 5th refused by Tempo. */
@@ -322,6 +322,7 @@ export function Landing() {
       </div>
 
       <UseCases />
+      <BudgetPlanner />
 
       <SetupLine />
 

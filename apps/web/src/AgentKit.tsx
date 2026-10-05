@@ -255,3 +255,115 @@ export function UseCases() {
     </section>
   )
 }
+
+type PlanItem = { svc: SvcId; what: string; usd: number; payee: string; calls: number }
+
+// Per-call MPP prices from mpp.dev. `payee` is the name Guard's allowlist knows the service by:
+// Firecrawl is paid through Tempo's gateway and Perplexity through Locus.
+const PLAN: PlanItem[] = [
+  { svc: 'nansen', what: 'Smart-money flows', usd: 0.05, payee: 'Nansen', calls: 1 },
+  { svc: 'nansen', what: 'Token info', usd: 0.01, payee: 'Nansen', calls: 0 },
+  { svc: 'codex', what: 'Token price', usd: 0.001, payee: 'Codex', calls: 5 },
+  { svc: 'exa', what: 'Web search', usd: 0.01, payee: 'Exa', calls: 2 },
+  { svc: 'firecrawl', what: 'Read a page', usd: 0.002, payee: 'Tempo MPP gateway', calls: 5 },
+  { svc: 'perplexity', what: 'Answer with sources', usd: 0.006, payee: 'Locus gateway', calls: 0 },
+]
+/** Upper bound on Tempo's network fee per payment; it's paid from the same limit. */
+const NET_FEE = 0.0001
+const MAX_CALLS = 9999
+
+/** Pick services and calls a day; get the daily limit to set and what fuel lasts. */
+export function BudgetPlanner() {
+  const [calls, setCalls] = useState(() => PLAN.map((p) => p.calls))
+  const [onlyThese, setOnlyThese] = useState(true)
+  const set = (i: number, n: number) => setCalls((c) => c.map((v, j) => (j === i ? Math.max(0, Math.min(MAX_CALLS, n)) : v)))
+
+  const count = calls.reduce((s, n) => s + n, 0)
+  const cost = PLAN.reduce((s, p, i) => s + p.usd * calls[i]!, 0)
+  const fees = count * NET_FEE
+  // 20% headroom for price changes and retries, rounded up to the cent.
+  const limit = count ? Math.max(0.01, Math.ceil((cost + fees) * 1.2 * 100 - 1e-9) / 100) : 0
+  const fuelDays = limit ? Math.floor(5 / (cost + fees)) : 0
+  const payees = [...new Set(PLAN.filter((_, i) => calls[i]! > 0).map((p) => p.payee))]
+  const guardLink = `/guard?limit=${limit.toFixed(2)}${onlyThese && payees.length ? `&allow=${encodeURIComponent(payees.join(','))}` : ''}`
+
+  return (
+    <section id="budget">
+      <div className="shell" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="lane" />
+        <h2 className="section">Plan your agent’s budget</h2>
+        <p className="lede">Choose what it calls and how often. Pitstop works out the daily limit to set and how long fuel lasts.</p>
+        <div className="plan-grid">
+          <ul className="plan-list">
+            {PLAN.map((p, i) => (
+              <li key={i} className={calls[i] ? 'on' : ''}>
+                <Avatar id={p.svc} size={32} />
+                <span className="plan-name">
+                  <b>{SVC[p.svc].name}</b>
+                  <span className="small muted">
+                    {p.what} · {money(p.usd)}
+                  </span>
+                </span>
+                <span className="stepper">
+                  <button onClick={() => set(i, calls[i]! - 1)} aria-label={`Fewer ${SVC[p.svc].name} calls`} disabled={!calls[i]}>
+                    −
+                  </button>
+                  <input
+                    inputMode="numeric"
+                    aria-label={`${SVC[p.svc].name} ${p.what} calls a day`}
+                    value={calls[i]}
+                    onChange={(e) => set(i, Number(e.target.value.replace(/\D/g, '') || 0))}
+                  />
+                  <button onClick={() => set(i, calls[i]! + 1)} aria-label={`More ${SVC[p.svc].name} calls`}>
+                    +
+                  </button>
+                </span>
+                <span className="plan-sub">{calls[i] ? money(p.usd * calls[i]!) : '—'}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="plan-out">
+            <span className="board-tag">Suggested daily limit</span>
+            <div className="plan-big">${limit.toFixed(2)}</div>
+            <dl className="plan-dl">
+              <div>
+                <dt>{count} calls a day</dt>
+                <dd>{money(cost)}</dd>
+              </div>
+              <div>
+                <dt>Network fees, at most</dt>
+                <dd>{money(fees)}</dd>
+              </div>
+              <div>
+                <dt>Headroom (20%)</dt>
+                <dd>{money(Math.max(0, limit - cost - fees))}</dd>
+              </div>
+              <div>
+                <dt>A month at this pace</dt>
+                <dd>${((cost + fees) * 30).toFixed(2)}</dd>
+              </div>
+            </dl>
+            <p className="small plan-note">
+              {count
+                ? `A $5 fuel-up lasts about ${fuelDays} day${fuelDays === 1 ? '' : 's'}. If the agent tries more, Tempo refuses the payment and nothing is charged.`
+                : 'Add a few calls to see a limit.'}
+            </p>
+            {payees.length > 0 && (
+              <label className="check">
+                <input type="checkbox" checked={onlyThese} onChange={(e) => setOnlyThese(e.target.checked)} /> Only let it pay these services
+              </label>
+            )}
+            <div className="cta">
+              <a className="btn signal-btn" href={count ? guardLink : '/guard'}>
+                {count ? `Set a $${limit.toFixed(2)} limit` : 'Set a limit'}
+              </a>
+              <a className="btn ghost" href="/fuel">
+                Fuel an agent
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}

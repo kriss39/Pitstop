@@ -21,6 +21,7 @@ import {
   AgentBoard,
   CopyButton,
   cleanDecimal,
+  isDecimal,
   countdown,
   decimalValue,
   owners,
@@ -42,7 +43,11 @@ const EXPIRY_DAYS = ['1', '7', '30', '90', '365']
 const DEFAULT_PAYEES = ['Nansen', 'Codex', 'Tempo MPP gateway']
 const SERVICE_LIST = Object.entries(SERVICES).map(([address, s]) => ({ address, ...s }))
 const nameOf = (a: string) => SERVICES[a.toLowerCase()]?.name
-const keyFromLink = new URLSearchParams(window.location.search).get('key')
+const link = new URLSearchParams(window.location.search)
+const keyFromLink = link.get('key')
+// The budget planner links here with a suggested limit and the services it picked.
+const limitFromLink = isDecimal(link.get('limit') ?? '') ? link.get('limit')! : undefined
+const allowFromLink = (link.get('allow') ?? '').split(',').filter((name) => SERVICE_LIST.some((s) => s.name === name))
 
 /** Saves text as a file in the browser's downloads. */
 function download(name: string, text: string) {
@@ -55,7 +60,7 @@ function download(name: string, text: string) {
 /** The daily limit last set for a key on this device, as text for the input. */
 function limitText(key: string) {
   const known = isAddress(key) ? savedLimit.get(key) : undefined
-  return known != null ? usd(known, known < 1_000_000n ? 4 : 2).replace(/\.?0+$/, '') : '5'
+  return known != null ? usd(known, known < 1_000_000n ? 4 : 2).replace(/\.?0+$/, '') : (limitFromLink ?? '5')
 }
 
 export function Guard() {
@@ -125,8 +130,8 @@ export function Guard() {
   const deadKey = !!status?.revoked || expired
 
   // Who the key may pay: anyone, or only the ticked services (Tempo enforces it on-chain).
-  const [onlyPicked, setOnlyPicked] = useState(false)
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(SERVICE_LIST.filter((s) => DEFAULT_PAYEES.includes(s.name)).map((s) => s.address)))
+  const [onlyPicked, setOnlyPicked] = useState(allowFromLink.length > 0)
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(SERVICE_LIST.filter((s) => (allowFromLink.length ? allowFromLink : DEFAULT_PAYEES).includes(s.name)).map((s) => s.address)))
   const [extraPayee, setExtraPayee] = useState('')
   const recipients = onlyPicked ? [...new Set([...picked, ...(isAddress(extraPayee) ? [extraPayee.toLowerCase()] : [])])].map((a) => a as Address) : undefined
   const extraPayeeBad = onlyPicked && extraPayee !== '' && !isAddress(extraPayee)
