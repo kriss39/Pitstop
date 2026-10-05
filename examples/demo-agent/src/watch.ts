@@ -1,4 +1,4 @@
-import { startAutoRefill } from '@pitstop/sdk'
+import { startAutoRefill } from '@getpitstop/sdk'
 import { formatUnits } from 'viem'
 import { refillConfig, store } from './agent-key.js'
 

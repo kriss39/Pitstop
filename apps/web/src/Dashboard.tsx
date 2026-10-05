@@ -1,4 +1,4 @@
-import { FUEL_TOKENS, type FuelTokenSymbol, type Spend } from '@pitstop/sdk'
+import { FUEL_TOKENS, type FuelTokenSymbol, type Spend } from '@getpitstop/sdk'
 import { useMemo, useState } from 'react'
 import { isAddress, parseUnits } from 'viem'
 import { Account } from 'viem/tempo'

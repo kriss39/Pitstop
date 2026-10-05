@@ -1,4 +1,4 @@
-import { refillIfLow } from '@pitstop/sdk'
+import { refillIfLow } from '@getpitstop/sdk'
 import { formatUnits } from 'viem'
 import { refillConfig, store } from './agent-key.js'
 

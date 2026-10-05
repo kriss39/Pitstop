@@ -11,7 +11,7 @@ import {
   type FuelCost,
   type FuelQuote,
   type FuelTokenSymbol,
-} from '@pitstop/sdk'
+} from '@getpitstop/sdk'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   createPublicClient,

@@ -11,7 +11,7 @@ import {
   updateAgentLimit,
   type FuelTokenSymbol,
   type GeneratedAccessKey,
-} from '@pitstop/sdk'
+} from '@getpitstop/sdk'
 import { useEffect, useMemo, useState } from 'react'
 import { SERVICES } from './services'
 import { isAddress, parseUnits, type Address, type Hex } from 'viem'

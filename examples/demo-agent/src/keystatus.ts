@@ -1,4 +1,4 @@
-import { getAgentKeyStatus, TIP20_DECIMALS } from '@pitstop/sdk'
+import { getAgentKeyStatus, TIP20_DECIMALS } from '@getpitstop/sdk'
 import { formatUnits } from 'viem'
 import { AGENT_TOKEN, AGENT_TOKEN_ADDRESS, loadKey, requireWallet } from './agent-key.js'
 

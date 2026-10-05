@@ -1,5 +1,5 @@
-import { FUEL_TOKENS, PITSTOP_FEE, TEMPO_TOKENS, TIP20_DECIMALS, type FuelTokenSymbol, type RefillConfig } from '@pitstop/sdk'
-import { keystore } from '@pitstop/sdk/node'
+import { FUEL_TOKENS, PITSTOP_FEE, TEMPO_TOKENS, TIP20_DECIMALS, type FuelTokenSymbol, type RefillConfig } from '@getpitstop/sdk'
+import { keystore } from '@getpitstop/sdk/node'
 import { resolve } from 'node:path'
 import { parseUnits } from 'viem'
 

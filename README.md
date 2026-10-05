@@ -133,7 +133,7 @@ There is deliberately no tool to change limits: the agent can't loosen its own l
 
 | Path | What |
 |---|---|
-| `packages/sdk` | `@pitstop/sdk`: Tempo client, balances, LI.FI fuel (`fuelQuote`, `executeFuel`, `waitForFuel`), guard (`authorizeAgentKey`, `revokeAgentKey`, `getAgentKeyStatus`, `agentAccount`, `pickFeeToken`), auto-refill, MPP directory, recent spends; `@pitstop/sdk/node` keystore |
+| `packages/sdk` | `@getpitstop/sdk`: Tempo client, balances, LI.FI fuel (`fuelQuote`, `executeFuel`, `waitForFuel`), guard (`authorizeAgentKey`, `revokeAgentKey`, `getAgentKeyStatus`, `agentAccount`, `pickFeeToken`), auto-refill, MPP directory, recent spends; `@getpitstop/sdk/node` keystore |
 | `packages/mcp` | MCP server (stdio) |
 | `apps/web` | Landing, Fuel, Guard, Dashboard, Docs and Stats (Vite + React) |
 | `apps/api` | Cloudflare Worker: serves the app, LI.FI proxy, Solana balances, usage stats, Telegram webhook, alert cron (D1) |

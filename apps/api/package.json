@@ -10,7 +10,7 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
-    "@pitstop/sdk": "workspace:*",
+    "@getpitstop/sdk": "workspace:*",
     "hono": "^4.13.0",
     "viem": "^2.57.2"
   },

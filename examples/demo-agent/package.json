@@ -18,7 +18,7 @@
     "demo": "tsx --env-file-if-exists=../../.env src/demo.ts"
   },
   "dependencies": {
-    "@pitstop/sdk": "workspace:*",
+    "@getpitstop/sdk": "workspace:*",
     "mppx": "^0.13.1",
     "viem": "^2.57.2"
   },

@@ -14,8 +14,8 @@ import {
   TIP20_DECIMALS,
   type FuelTokenSymbol,
   totalUsd,
-} from '@pitstop/sdk'
-import { keystore } from '@pitstop/sdk/node'
+} from '@getpitstop/sdk'
+import { keystore } from '@getpitstop/sdk/node'
 import { formatUnits, isAddress, parseUnits, type Address } from 'viem'
 import { z } from 'zod'
 

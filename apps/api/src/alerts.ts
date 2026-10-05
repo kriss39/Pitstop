@@ -1,4 +1,4 @@
-import { FUEL_TOKENS, getAgentKeyStatus, getBalance, TEMPO_TOKENS, totalUsd, type FuelTokenSymbol } from '@pitstop/sdk'
+import { FUEL_TOKENS, getAgentKeyStatus, getBalance, TEMPO_TOKENS, totalUsd, type FuelTokenSymbol } from '@getpitstop/sdk'
 import { formatUnits, getAddress, isAddress, type Address } from 'viem'
 
 export const APP_URL = 'https://fuel.pitstopgas.workers.dev'

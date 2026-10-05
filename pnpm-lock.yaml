@@ -178,7 +178,7 @@ importers:
 
   apps/api:
     dependencies:
-      '@pitstop/sdk':
+      '@getpitstop/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
       hono:
@@ -200,7 +200,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@pitstop/sdk':
+      '@getpitstop/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
       '@wallet-standard/app':
@@ -234,7 +234,7 @@ importers:
 
   examples/demo-agent:
     dependencies:
-      '@pitstop/sdk':
+      '@getpitstop/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
       mppx:
@@ -250,12 +250,12 @@ importers:
 
   packages/mcp:
     dependencies:
+      '@getpitstop/sdk':
+        specifier: workspace:*
+        version: link:../sdk
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.0
         version: 1.32.0(supports-color@10.2.2)(zod@4.6.5)
-      '@pitstop/sdk':
-        specifier: workspace:*
-        version: link:../sdk
       viem:
         specifier: ^2.57.2
         version: 2.57.2(bufferutil@4.1.0)(typescript@7.0.2)(utf-8-validate@6.0.6)(zod@4.6.5)

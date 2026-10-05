@@ -1,11 +1,11 @@
-# @pitstop/mcp
+# @getpitstop/mcp
 
 MCP server that lets an AI agent check its fuel and spending limit on [Tempo](https://tempo.xyz), refuel itself from a small home wallet, and send its owner the link to raise or revoke its limit. There is no tool to raise a limit: the agent can't loosen its own leash.
 
 ## Add it to Claude Code
 
 ```sh
-claude mcp add pitstop -e AGENT_WALLET=0x… -e PITSTOP_AGENT_KEY=0x… -- npx -y @pitstop/mcp
+claude mcp add pitstop -e AGENT_WALLET=0x… -e PITSTOP_AGENT_KEY=0x… -- npx -y @getpitstop/mcp
 ```
 
 Claude Desktop, Cursor and other clients:
@@ -15,7 +15,7 @@ Claude Desktop, Cursor and other clients:
   "mcpServers": {
     "pitstop": {
       "command": "npx",
-      "args": ["-y", "@pitstop/mcp"],
+      "args": ["-y", "@getpitstop/mcp"],
       "env": { "AGENT_WALLET": "0x…", "PITSTOP_AGENT_KEY": "0x…" }
     }
   }

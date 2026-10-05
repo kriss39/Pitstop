@@ -1,4 +1,4 @@
-import { getBalance, totalUsd, TIP20_DECIMALS } from '@pitstop/sdk'
+import { getBalance, totalUsd, TIP20_DECIMALS } from '@getpitstop/sdk'
 import { formatUnits, isAddress } from 'viem'
 
 // Day 0: read the agent's balance. Refuel, MPP payments and the spending cap come later.

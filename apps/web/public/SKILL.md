@@ -74,11 +74,11 @@ Tools:
 
 ## 5. Pay an MPP service
 
-Put a script in `~/pitstop/examples/demo-agent/src/` (it has `@pitstop/sdk` and `mppx` installed) and run it with
+Put a script in `~/pitstop/examples/demo-agent/src/` (it has `@getpitstop/sdk` and `mppx` installed) and run it with
 `pnpm exec tsx --env-file=../../.env src/your-script.ts`:
 
 ```ts
-import { agentAccount } from '@pitstop/sdk'
+import { agentAccount } from '@getpitstop/sdk'
 import { Mppx, tempo } from 'mppx/client'
 
 const account = agentAccount(process.env.PITSTOP_AGENT_KEY as `0x${string}`, process.env.AGENT_WALLET as `0x${string}`)

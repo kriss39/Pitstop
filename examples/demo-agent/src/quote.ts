@@ -1,4 +1,4 @@
-import { fuelQuote, SOURCE_TOKENS, TIP20_DECIMALS } from '@pitstop/sdk'
+import { fuelQuote, SOURCE_TOKENS, TIP20_DECIMALS } from '@getpitstop/sdk'
 import { formatUnits, isAddress, parseUnits } from 'viem'
 
 // Read-only: asks LI.FI how much USDCe the agent would receive.

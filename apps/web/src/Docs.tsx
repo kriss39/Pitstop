@@ -72,7 +72,7 @@ const MCP_CONFIG = `{
   }
 }`
 
-const PAY_SNIPPET = `import { agentAccount } from '@pitstop/sdk'
+const PAY_SNIPPET = `import { agentAccount } from '@getpitstop/sdk'
 import { Mppx, tempo } from 'mppx/client'
 
 // The agent signs with its own key, inside the owner's limit.
@@ -85,7 +85,7 @@ const res = await mppx.fetch('https://api.nansen.ai/api/v1/tgm/token-information
   body: JSON.stringify({ chain: 'ethereum', token_address: '0xA0b8…eB48', timeframe: '1d' }),
 })`
 
-const FUEL_SNIPPET = `import { executeFuel, fuelQuote, SOURCE_TOKENS, waitForFuel } from '@pitstop/sdk'
+const FUEL_SNIPPET = `import { executeFuel, fuelQuote, SOURCE_TOKENS, waitForFuel } from '@getpitstop/sdk'
 
 const quote = await fuelQuote({
   fromChain: SOURCE_TOKENS.base.chainId,
@@ -308,7 +308,7 @@ export function Docs() {
 
           <Section id="sdk" title="SDK">
             <p>
-              <code>@pitstop/sdk</code> is the TypeScript library behind the app, the agent and the MCP server.
+              <code>@getpitstop/sdk</code> is the TypeScript library behind the app, the agent and the MCP server.
             </p>
             <Code>{FUEL_SNIPPET}</Code>
             <div className="table-wrap"><table className="doc-table">

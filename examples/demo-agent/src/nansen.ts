@@ -1,4 +1,4 @@
-import { agentAccount, getAgentKeyStatus, TIP20_DECIMALS } from '@pitstop/sdk'
+import { agentAccount, getAgentKeyStatus, TIP20_DECIMALS } from '@getpitstop/sdk'
 import { Mppx, tempo } from 'mppx/client'
 import { formatUnits } from 'viem'
 import { loadKey, requireWallet } from './agent-key.js'

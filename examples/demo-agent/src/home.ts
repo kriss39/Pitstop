@@ -1,4 +1,4 @@
-import { getHomeBalances } from '@pitstop/sdk'
+import { getHomeBalances } from '@getpitstop/sdk'
 import { formatEther, formatUnits } from 'viem'
 import { store } from './agent-key.js'
 

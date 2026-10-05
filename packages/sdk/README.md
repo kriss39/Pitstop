@@ -1,4 +1,4 @@
-# @pitstop/sdk
+# @getpitstop/sdk
 
 Fuel AI agents on [Tempo](https://tempo.xyz) from any chain, and cap what they can spend.
 
@@ -8,13 +8,13 @@ Fuel AI agents on [Tempo](https://tempo.xyz) from any chain, and cap what they c
 - **Pay:** `agentAccount` signs MPP payments with the agent's access key, ready for [mppx](https://github.com/wevm/mppx).
 
 ```sh
-npm install @pitstop/sdk viem
+npm install @getpitstop/sdk viem
 ```
 
 ## Check an agent's key and pay an MPP service
 
 ```ts
-import { accessKeyFromPrivateKey, agentAccount, getAgentKeyStatus, getBalance, TEMPO_TOKENS, totalUsd } from '@pitstop/sdk'
+import { accessKeyFromPrivateKey, agentAccount, getAgentKeyStatus, getBalance, TEMPO_TOKENS, totalUsd } from '@getpitstop/sdk'
 import { Mppx, tempo } from 'mppx/client'
 
 const wallet = '0x…'   // the agent's Tempo wallet
@@ -34,7 +34,7 @@ A payment over the limit fails on-chain with `SpendingLimitExceeded`, and costs 
 ## Quote a fuel route
 
 ```ts
-import { fuelQuote } from '@pitstop/sdk'
+import { fuelQuote } from '@getpitstop/sdk'
 
 const quote = await fuelQuote({
   fromChain: 8453,                                         // Base
@@ -47,7 +47,7 @@ const quote = await fuelQuote({
 
 `executeFuel` sends it from a viem wallet, and `waitForFuel` follows it until it lands.
 
-Node helpers (keystore for agent keys and home wallets) are in `@pitstop/sdk/node`.
+Node helpers (keystore for agent keys and home wallets) are in `@getpitstop/sdk/node`.
 
 Full docs, the web app and the MCP server: https://github.com/kriss39/pitstop · https://fuel.pitstopgas.workers.dev
 

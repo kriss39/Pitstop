@@ -1,4 +1,4 @@
-import { getBalance, LIFI_API_URL, PITSTOP_FEE, TEMPO_CHAIN_ID, totalUsd } from '@pitstop/sdk'
+import { getBalance, LIFI_API_URL, PITSTOP_FEE, TEMPO_CHAIN_ID, totalUsd } from '@getpitstop/sdk'
 import { Hono } from 'hono'
 import { checkAgents, handleTelegramUpdate } from './alerts.js'
 import { getStats } from './stats.js'

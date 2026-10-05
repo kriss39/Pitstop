@@ -9,7 +9,7 @@ import {
   type FuelTokenSymbol,
   type Spend,
   type TokenBalance,
-} from '@pitstop/sdk'
+} from '@getpitstop/sdk'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { formatUnits, isAddress, type Address, type Hex } from 'viem'
 import { Account } from 'viem/tempo'
