@@ -1,6 +1,6 @@
 {
   "name": "@getpitstop/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Refuel AI agents on Tempo from any chain, and cap what they can spend.",
   "license": "MIT",
   "keywords": [
