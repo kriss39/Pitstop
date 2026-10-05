@@ -3,26 +3,19 @@ import { CopyButton } from './basics'
 
 const SKILL_URL = 'https://fuel.pitstopgas.workers.dev/SKILL.md'
 
-/** Services shown in the fan-out and the runs, with their colours and real MPP prices (mpp.dev, Oct 2026). */
+/** Services shown in the fan-out and the runs, with their logos; prices below are their real MPP prices (mpp.dev, Oct 2026). */
 const SVC = {
-  nansen: { name: 'Nansen', color: '#00d395', icon: '/services/nansen.png' },
-  codex: { name: 'Codex', color: '#d7ff3a', icon: '/services/codex.png' },
-  exa: { name: 'Exa', color: '#3d6bff' },
-  firecrawl: { name: 'Firecrawl', color: '#ff6a2b' },
-  perplexity: { name: 'Perplexity', color: '#22b8c8' },
-  dune: { name: 'Dune', color: '#f4603e' },
+  nansen: { name: 'Nansen', icon: '/services/nansen.png' },
+  codex: { name: 'Codex', icon: '/services/codex.png' },
+  exa: { name: 'Exa', icon: '/services/exa.png' },
+  firecrawl: { name: 'Firecrawl', icon: '/services/firecrawl.png' },
+  perplexity: { name: 'Perplexity', icon: '/services/perplexity.png' },
+  dune: { name: 'Dune', icon: '/services/dune.png' },
 } as const
 type SvcId = keyof typeof SVC
 
 function Avatar({ id, size = 30 }: { id: SvcId; size?: number }) {
-  const s = SVC[id]
-  return 'icon' in s ? (
-    <img className="svc-av" src={s.icon} alt="" width={size} height={size} />
-  ) : (
-    <span className="svc-av" style={{ background: s.color, width: size, height: size }} aria-hidden>
-      {s.name[0]}
-    </span>
-  )
+  return <img className="svc-av" src={SVC[id].icon} alt="" width={size} height={size} />
 }
 
 /** One line the owner pastes into their agent; the agent reads SKILL.md and sets itself up. */
