@@ -39,7 +39,7 @@ AI agents now pay for APIs per call over [MPP](https://mpp.dev): 137 services on
 
 ## ✨ What's inside
 
-| | |
+| Feature | What it does |
 |---|---|
 | ⛽ **Fuel** | Pay with USDC, ETH, SOL, POL or AVAX from Base, Solana, Ethereum, Arbitrum, Optimism, Polygon, Avalanche or Arc. The agent receives USDC.e on Tempo in about two seconds, with every fee shown before you sign. |
 | 🛡️ **Guard** | Your passkey owns the wallet. The agent gets its own key with a daily limit, one token, an end date and, if you want, a list of the only services it may pay. Tempo enforces it. |
