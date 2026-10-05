@@ -13,7 +13,8 @@ Live app: https://fuel.pitstopgas.workers.dev · Code: https://github.com/kriss3
 
 ## 1. Install (once)
 
-Needs Node 22+ and git.
+Needs Node 22+. The MCP server (step 3) runs straight from npm with `npx -y @getpitstop/mcp`; nothing else
+to install. To write payment scripts (step 5) or make your own key, also clone the repo:
 
 ```sh
 git clone https://github.com/kriss39/pitstop ~/pitstop
@@ -42,15 +43,15 @@ Never print, log or share `PITSTOP_AGENT_KEY`.
 ## 3. Add the MCP server (Claude Code, Claude Desktop, Cursor)
 
 ```sh
-claude mcp add pitstop -e AGENT_WALLET=0x... -e PITSTOP_DIR=$HOME/pitstop/examples/demo-agent/.pitstop -- node $HOME/pitstop/packages/mcp/dist/index.js
+claude mcp add pitstop -e AGENT_WALLET=0x... -e PITSTOP_AGENT_KEY=0x... -- npx -y @getpitstop/mcp
 ```
 
-Add `-e PITSTOP_AGENT_KEY=0x...` if your owner created the key on Guard. For other clients, use this in
-their MCP config:
+If you made your own key with `pnpm key`, use `-e PITSTOP_DIR=$HOME/pitstop/examples/demo-agent/.pitstop` instead of
+`PITSTOP_AGENT_KEY`. For other clients, use this in their MCP config:
 
 ```json
-{ "mcpServers": { "pitstop": { "command": "node", "args": ["~/pitstop/packages/mcp/dist/index.js"],
-  "env": { "AGENT_WALLET": "0x...", "PITSTOP_AGENT_KEY": "0x...", "PITSTOP_DIR": "~/pitstop/examples/demo-agent/.pitstop" } } } }
+{ "mcpServers": { "pitstop": { "command": "npx", "args": ["-y", "@getpitstop/mcp"],
+  "env": { "AGENT_WALLET": "0x...", "PITSTOP_AGENT_KEY": "0x..." } } } }
 ```
 
 Tools:

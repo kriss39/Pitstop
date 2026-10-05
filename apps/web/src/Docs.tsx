@@ -61,8 +61,8 @@ function useActiveSection() {
 const MCP_CONFIG = `{
   "mcpServers": {
     "pitstop": {
-      "command": "node",
-      "args": ["/path/to/pitstop/packages/mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@getpitstop/mcp"],
       "env": {
         "AGENT_WALLET": "0xYourAgentWallet",
         "PITSTOP_AGENT_KEY": "0x… (only if you created the key on Guard)",
@@ -272,6 +272,8 @@ export function Docs() {
 
           <Section id="mcp" title="Claude & Cursor (MCP)">
             <p>Add Pitstop as an MCP server, then ask in plain words: “What’s my agent’s balance?” or “Fuel my agent with 1 USDC”.</p>
+            <Code>{'claude mcp add pitstop -e AGENT_WALLET=0x… -e PITSTOP_AGENT_KEY=0x… -- npx -y @getpitstop/mcp'}</Code>
+            <p>Claude Desktop, Cursor and other clients:</p>
             <Code>{MCP_CONFIG}</Code>
             <div className="table-wrap"><table className="doc-table">
               <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
@@ -310,6 +312,7 @@ export function Docs() {
             <p>
               <code>@getpitstop/sdk</code> is the TypeScript library behind the app, the agent and the MCP server.
             </p>
+            <Code>{'npm install @getpitstop/sdk viem'}</Code>
             <Code>{FUEL_SNIPPET}</Code>
             <div className="table-wrap"><table className="doc-table">
               <thead><tr><th>Function</th><th>Use it to</th></tr></thead>

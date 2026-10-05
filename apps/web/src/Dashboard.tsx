@@ -83,8 +83,8 @@ export function Dashboard() {
     {
       mcpServers: {
         pitstop: {
-          command: 'node',
-          args: ['/path/to/pitstop/packages/mcp/dist/index.js'],
+          command: 'npx',
+          args: ['-y', '@getpitstop/mcp'],
           env: { AGENT_WALLET: walletOk ? wallet : '0x…', PITSTOP_AGENT_KEY: '0x… (only if you created the key on Guard)', PITSTOP_DIR: '/path/to/.pitstop' },
         },
       },

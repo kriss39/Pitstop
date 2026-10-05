@@ -256,7 +256,7 @@ export function Guard() {
   const handoffText =
     handoff === 'env'
       ? Object.entries(agentEnv).map(([k, v]) => `${k}=${v}`).join('\n') + '\n'
-      : JSON.stringify({ mcpServers: { pitstop: { command: 'node', args: ['/path/to/pitstop/packages/mcp/dist/index.js'], env: { ...agentEnv, PITSTOP_DIR: '/path/to/.pitstop' } } } }, null, 2)
+      : JSON.stringify({ mcpServers: { pitstop: { command: 'npx', args: ['-y', '@getpitstop/mcp'], env: agentEnv } } }, null, 2)
   const hidden = newKey ? `${newKey.privateKey.slice(0, 6)}${'•'.repeat(20)}${newKey.privateKey.slice(-4)}` : ''
   const handoffShown = reveal || !newKey ? handoffText : handoffText.replace(newKey.privateKey, hidden)
 

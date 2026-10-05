@@ -92,14 +92,20 @@ pnpm refill          # one refill check; pnpm watch keeps it running
 | `PITSTOP_FEE` | Integrator fee on agent refills (default 0.001 = 0.1%; `0` turns it off) |
 | `LIFI_API_KEY` | Optional LI.FI API key for higher rate limits |
 
-**Claude / Cursor (MCP):** add to `.mcp.json`:
+**Claude / Cursor (MCP):** no clone needed. The server is on npm as [`@getpitstop/mcp`](https://www.npmjs.com/package/@getpitstop/mcp), the library as [`@getpitstop/sdk`](https://www.npmjs.com/package/@getpitstop/sdk). In Claude Code:
+
+```sh
+claude mcp add pitstop -e AGENT_WALLET=0x… -e PITSTOP_AGENT_KEY=0x… -- npx -y @getpitstop/mcp
+```
+
+Or add to `.mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "pitstop": {
-      "command": "node",
-      "args": ["/path/to/pitstop/packages/mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@getpitstop/mcp"],
       "env": { "AGENT_WALLET": "0x…", "PITSTOP_AGENT_KEY": "0x…", "PITSTOP_DIR": "/path/to/.pitstop" }
     }
   }
