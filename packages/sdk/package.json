@@ -1,8 +1,25 @@
 {
   "name": "@pitstop/sdk",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Refuel AI agents on Tempo from any chain, and cap what they can spend.",
   "license": "MIT",
+  "keywords": [
+    "tempo",
+    "mpp",
+    "ai-agents",
+    "account-keychain",
+    "spending-limit",
+    "lifi",
+    "stablecoin",
+    "agent-wallet"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kriss39/pitstop.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://fuel.pitstopgas.workers.dev",
+  "bugs": "https://github.com/kriss39/pitstop/issues",
   "type": "module",
   "exports": {
     ".": {
@@ -15,7 +32,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "src",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -23,5 +42,11 @@
   },
   "dependencies": {
     "viem": "^2.57.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

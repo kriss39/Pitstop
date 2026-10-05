@@ -1,13 +1,34 @@
 {
   "name": "@pitstop/mcp",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "MCP server that lets AI agents refuel themselves on Tempo.",
   "license": "MIT",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "tempo",
+    "mpp",
+    "ai-agents",
+    "claude",
+    "cursor",
+    "agent-wallet"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kriss39/pitstop.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://fuel.pitstopgas.workers.dev",
+  "bugs": "https://github.com/kriss39/pitstop/issues",
   "type": "module",
   "bin": {
     "pitstop-mcp": "./dist/index.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -18,5 +39,11 @@
     "@pitstop/sdk": "workspace:*",
     "viem": "^2.57.2",
     "zod": "^4.6.5"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
