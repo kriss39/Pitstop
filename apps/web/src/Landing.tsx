@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { SetupLine, UseCases } from './AgentKit'
 import { BOT_HANDLE, CopyButton, DEMO_DASHBOARD, FlagChip, FuelCells } from './basics'
 
 /** The real mainnet demo, replayed: 4 Nansen calls at $0.01, the 5th refused by Tempo. */
@@ -300,6 +301,7 @@ function Guide() {
 export function Landing() {
   return (
     <main className="landing">
+      <div className="hero-glow" aria-hidden />
       <div className="shell">
         <div className="hero">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -318,6 +320,10 @@ export function Landing() {
           <ReplayBoard />
         </div>
       </div>
+
+      <UseCases />
+
+      <SetupLine />
 
       <Guide />
 

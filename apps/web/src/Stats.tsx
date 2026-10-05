@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react'
 
 type Stats = {
   updatedAt: number
-  transfers: { total: number; outside: number; team: number }
+  transfers: number
   users: number
   agents: number
-  volumeUsd: { total: number; outside: number }
+  volumeUsd: number
   feesEarnedUsd: number
   telegram: { chats: number; agents: number }
   byChain: { chain: string; transfers: number; volumeUsd: number }[]
-  recent: { time: number; chain: string; amountUsd: number; token: string; tool: string; team: boolean; link?: string }[]
+  recent: { time: number; chain: string; amountUsd: number; token: string; tool: string; link?: string }[]
 }
 
 const TOOLS: Record<string, string> = { across: 'Across', relaydepository: 'Relay', relay: 'Relay' }
@@ -36,8 +36,7 @@ export function StatsPage() {
       <header className="rise" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <h1 className="title">Live usage</h1>
         <p className="lede">
-          Every transfer routed through Pitstop, straight from LI.FI’s records. Our own mainnet tests are counted separately, so the
-          outside numbers are real users only.
+          Every transfer routed through Pitstop, straight from LI.FI’s records.
         </p>
       </header>
 
@@ -48,26 +47,24 @@ export function StatsPage() {
         <>
           <section className="stat-grid rise d1">
             <div className="stat">
-              <span className="stat-k">Outside users</span>
+              <span className="stat-k">Users</span>
               <b>{stats.users}</b>
               <small>unique wallets that fuelled an agent</small>
             </div>
             <div className="stat">
               <span className="stat-k">Agents fuelled</span>
               <b>{stats.agents}</b>
-              <small>by outside users</small>
+              <small>agent wallets that received fuel</small>
             </div>
             <div className="stat">
               <span className="stat-k">Moved to Tempo</span>
-              <b>{money(stats.volumeUsd.total)}</b>
-              <small>{money(stats.volumeUsd.outside)} by outside users</small>
+              <b>{money(stats.volumeUsd)}</b>
+              <small>sent through LI.FI</small>
             </div>
             <div className="stat">
               <span className="stat-k">Transfers</span>
-              <b>{stats.transfers.total}</b>
-              <small>
-                {stats.transfers.outside} outside · {stats.transfers.team} team tests
-              </small>
+              <b>{stats.transfers}</b>
+              <small>completed fuel routes</small>
             </div>
             <div className="stat">
               <span className="stat-k">Pitstop fees earned</span>
@@ -81,19 +78,13 @@ export function StatsPage() {
             </div>
           </section>
 
-          {stats.transfers.outside === 0 && (
-            <p className="note warn">
-              No outside users yet: every transfer so far is our own mainnet testing. Be the first: <a href="/fuel">fuel an agent</a>.
-            </p>
-          )}
-
           <div className="dash">
             <section className="panel">
               <span className="swap-label">Recent transfers</span>
               <ul className="feed">
                 {stats.recent.map((t) => (
                   <li key={`${t.time}-${t.link}`}>
-                    <span className={`avatar${t.team ? ' fee' : ''}`} aria-hidden>
+                    <span className="avatar" aria-hidden>
                       {t.chain[0]}
                     </span>
                     <span style={{ minWidth: 0 }}>
@@ -109,7 +100,6 @@ export function StatsPage() {
                     </span>
                     <span className="amt">
                       {money(t.amountUsd)}
-                      <small>{t.team ? 'team test' : 'user'}</small>
                     </span>
                   </li>
                 ))}

@@ -1,22 +1,10 @@
 // Public usage numbers for /stats: transfers routed with Pitstop's LI.FI integrator id,
-// Pitstop's fees from them, and Telegram watches. Team test wallets are marked
-// so outside usage can be told apart from our own testing.
+// Pitstop's fees from them, and Telegram watches.
 
 const LIFI = 'https://li.quest'
 const INTEGRATOR = 'pitstop'
 const CACHE_MS = 5 * 60_000
 const MAX_PAGES = 10
-
-/** Wallets the Pitstop team used for mainnet tests (senders and the demo agent). */
-const TEAM = new Set(
-  [
-    '0xFE99072AB3823d1873BB2caC339Ed326140fd169', // demo agent's home wallet on Base
-    '0xA35ab49388eae377D0757d334C07C3bf4FB99AFc', // owner's wallet
-    '0x0f7b41747db741E0A4fF444915F231452f9f92fA', // first test wallet
-    'Bq2rLKotNSmnouVtyL3JFzYEUEjiD6P8WGKqFc1M42Dq', // owner's Solana wallet
-    '0x9Bd4984986D273ee27077C42Fe63dFB712b50bC0', // demo agent's Tempo wallet
-  ].map((a) => a.toLowerCase()),
-)
 
 const CHAINS: Record<number, string> = {
   1: 'Ethereum',
@@ -44,15 +32,15 @@ type Transfer = {
 
 export type Stats = {
   updatedAt: number
-  transfers: { total: number; outside: number; team: number }
+  transfers: number
   users: number
   agents: number
-  volumeUsd: { total: number; outside: number }
+  volumeUsd: number
   /** Pitstop's integrator fees, from each transfer's fee split (stablecoins at $1). */
   feesEarnedUsd: number
   telegram: { chats: number; agents: number }
   byChain: { chain: string; transfers: number; volumeUsd: number }[]
-  recent: { time: number; chain: string; amountUsd: number; token: string; tool: string; team: boolean; link?: string }[]
+  recent: { time: number; chain: string; amountUsd: number; token: string; tool: string; link?: string }[]
 }
 
 let cached: { at: number; stats: Stats } | undefined
@@ -94,7 +82,6 @@ function earnedUsd(t: Transfer): number {
   return usd
 }
 
-const isTeam = (t: Transfer) => TEAM.has((t.fromAddress ?? '').toLowerCase()) || TEAM.has((t.toAddress ?? '').toLowerCase())
 const usdOf = (t: Transfer) => Number(t.sending.amountUSD ?? 0)
 const round = (n: number) => Math.round(n * 100) / 100
 
@@ -122,7 +109,6 @@ async function computeStats(db: D1Database | undefined, apiKey?: string): Promis
       : null,
   ])
   const done = transfers.filter((t) => t.status === 'DONE')
-  const outside = done.filter((t) => !isTeam(t))
 
   const byChain = new Map<string, { transfers: number; volumeUsd: number }>()
   for (const t of done) {
@@ -135,10 +121,10 @@ async function computeStats(db: D1Database | undefined, apiKey?: string): Promis
 
   const stats: Stats = {
     updatedAt: Date.now(),
-    transfers: { total: done.length, outside: outside.length, team: done.length - outside.length },
-    users: new Set(outside.map((t) => (t.fromAddress ?? '').toLowerCase())).size,
-    agents: new Set(outside.map((t) => (t.toAddress ?? '').toLowerCase())).size,
-    volumeUsd: { total: round(done.reduce((s, t) => s + usdOf(t), 0)), outside: round(outside.reduce((s, t) => s + usdOf(t), 0)) },
+    transfers: done.length,
+    users: new Set(done.map((t) => (t.fromAddress ?? '').toLowerCase())).size,
+    agents: new Set(done.map((t) => (t.toAddress ?? '').toLowerCase())).size,
+    volumeUsd: round(done.reduce((s, t) => s + usdOf(t), 0)),
     feesEarnedUsd: Math.round(done.reduce((sum, t) => sum + earnedUsd(t), 0) * 10_000) / 10_000,
     telegram: { chats: watches?.chats ?? 0, agents: watches?.agents ?? 0 },
     byChain: [...byChain.entries()]
@@ -154,7 +140,6 @@ async function computeStats(db: D1Database | undefined, apiKey?: string): Promis
         amountUsd: round(usdOf(t)),
         token: t.receiving.token?.symbol ?? '',
         tool: t.tool ?? '',
-        team: isTeam(t),
         link: t.lifiExplorerLink,
       })),
   }
