@@ -22,7 +22,7 @@
 
 ---
 
-AI agents now pay for APIs per call over [MPP](https://mpp.dev): 137 services on mpp.dev, 134 of them payable on Tempo, from Anthropic and OpenAI to Dune, Nansen and Exa. Tempo gives every wallet access keys with spending limits. What's still missing is everything around them:
+AI agents now pay for APIs per call over [MPP](https://mpp.dev): 130 services on mpp.dev, 127 of them payable on Tempo, from Anthropic and OpenAI to Dune, Nansen and Exa. Tempo gives every wallet access keys with spending limits. What's still missing is everything around them:
 
 - 💸 **The money is somewhere else.** Owners hold stablecoins and gas tokens on Solana, Base, Ethereum and other chains; the agent needs USDC.e on Tempo.
 - 👀 **Nobody is watching.** The agent runs dry halfway through a task, or burns its budget, and the owner finds out too late.
@@ -47,6 +47,22 @@ AI agents now pay for APIs per call over [MPP](https://mpp.dev): 137 services on
 | 📟 **Watch** | A live dashboard of what's left today and where every payment went, plus Telegram alerts when fuel is low, the limit is hit, or the key is revoked or expires. |
 | 🔁 **Refill** | The agent tops itself up from a small home wallet with a daily cap, or asks for fuel from Claude or Cursor through the MCP server. |
 | 🤖 **One-line setup** | Paste one line into Claude Code or Codex; the agent reads [`SKILL.md`](https://fuel.pitstopgas.workers.dev/SKILL.md) and sets itself up. |
+
+## 🤝 Pitstop and Tempo Wallet
+
+[Tempo Wallet](https://wallet.tempo.xyz) already gives you a passkey wallet, access keys with spending limits, revocation, a funding flow and `tempo request --max-spend`. Pitstop uses the same Account Keychain keys; it doesn't replace them. It adds the parts that run while you're not watching the agent:
+
+| | Tempo Wallet | Pitstop |
+|---|---|---|
+| Agent key with a limit, end date and revoke | ✅ | ✅ The same Account Keychain key, authorized from a passkey in the browser |
+| Only pay specific services (TIP-1011 recipient scopes) | In code, with `wallet_authorizeAccessKey` | In the Guard page, with the allowlist and daily limit suggested from mpp.dev prices |
+| Add funds | Fiat onramp and other networks, started by you | USDC or gas tokens from 8 chains through LI.FI, with the route checked before you sign |
+| Agent runs low | You top it up | The agent refills itself from a capped home wallet, or asks for fuel over MCP |
+| Something happens | You check `tempo wallet whoami` | Dashboard and Telegram alerts: low fuel, limit used up, key revoked or expired |
+
+If you run one agent and top it up by hand, Tempo Wallet on its own is enough. Pitstop is for agents that run unattended, or that hold their funds on other chains.
+
+<sub>Tempo Wallet column based on Tempo's docs as of October 2026.</sub>
 
 ## 📸 Screenshots
 
