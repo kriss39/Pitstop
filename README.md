@@ -6,7 +6,6 @@
   <a href="https://github.com/kriss39/pitstop/actions/workflows/ci.yml"><img src="https://github.com/kriss39/pitstop/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.npmjs.com/package/@getpitstop/sdk"><img src="https://img.shields.io/npm/v/@getpitstop/sdk?label=%40getpitstop%2Fsdk&color=FFD400&labelColor=111" alt="npm sdk"></a>
   <a href="https://www.npmjs.com/package/@getpitstop/mcp"><img src="https://img.shields.io/npm/v/@getpitstop/mcp?label=%40getpitstop%2Fmcp&color=FFD400&labelColor=111" alt="npm mcp"></a>
-  <a href="https://mpp.dev/extensions"><img src="https://img.shields.io/badge/listed%20on-mpp.dev-111?labelColor=6d4bff" alt="Listed on mpp.dev extensions"></a>
   <img src="https://img.shields.io/badge/Tempo-mainnet-6d4bff?labelColor=111" alt="Tempo mainnet">
   <img src="https://img.shields.io/badge/routed%20by-LI.FI-ff7a2f?labelColor=111" alt="LI.FI">
   <img src="https://img.shields.io/badge/license-MIT-3ddc97?labelColor=111" alt="MIT">
@@ -21,6 +20,10 @@
   <a href="mailto:pitstop.agents@gmail.com">✉️ Feedback</a>
 </p>
 
+<p align="center">
+  <a href="https://mpp.dev/extensions"><img src="https://img.shields.io/badge/%F0%9F%8F%81%20official%20MPP%20extension-listed%20on%20mpp.dev-FFD400?style=for-the-badge&labelColor=111" alt="Official MPP extension: listed on mpp.dev"></a>
+</p>
+
 ---
 
 AI agents now pay for APIs per call over [MPP](https://mpp.dev): 130 services on mpp.dev, 127 of them payable on Tempo, from Anthropic and OpenAI to Dune, Nansen and Exa. Tempo gives every wallet access keys with spending limits. What's still missing is everything around them:
@@ -28,7 +31,7 @@ AI agents now pay for APIs per call over [MPP](https://mpp.dev): 130 services on
 - 💸 **The money is somewhere else.** Owners hold stablecoins and gas tokens on Solana, Base, Ethereum and other chains; the agent needs USDC.e on Tempo.
 - 👀 **Nobody is watching.** The agent runs dry halfway through a task, or burns its budget, and the owner finds out too late.
 
-**Pitstop is the pit crew around Tempo's keys.** It is listed on [mpp.dev's extensions page](https://mpp.dev/extensions) ([tempoxyz/mpp#1153](https://github.com/tempoxyz/mpp/pull/1153)). It fuels the agent from any chain through LI.FI in about two seconds, sets up its spending key (daily limit, token, end date, allowed services) from a passkey in the browser, refills it automatically, and watches it from a dashboard and Telegram. The limit is enforced by Tempo itself: the owner's passkey is the only thing that can change it.
+**Pitstop is the pit crew around Tempo's keys.** It fuels the agent from any chain through LI.FI in about two seconds, sets up its spending key (daily limit, token, end date, allowed services) from a passkey in the browser, refills it automatically, and watches it from a dashboard and Telegram. The limit is enforced by Tempo itself: the owner's passkey is the only thing that can change it.
 
 ```
 # 1 Nansen token info: USDC   paid $0.01 → 200 · limit left $0.0400
@@ -37,6 +40,14 @@ AI agents now pay for APIs per call over [MPP](https://mpp.dev): 130 services on
 # 4 Nansen token info: UNI    paid $0.01 → 200 · limit left $0.0099
 # 5 Nansen token info: AAVE   ⛔ BLOCKED by the guard: SpendingLimitExceeded
 ```
+
+## 🏆 Listed on mpp.dev
+
+Pitstop is an official extension on [MPP's extensions page](https://mpp.dev/extensions). The Tempo team reviewed and merged it on 2026-11-03 ([tempoxyz/mpp#1153](https://github.com/tempoxyz/mpp/pull/1153)). Of the six listed extensions, it's the only one that funds an agent's wallet from other chains and caps what its key can spend, enforced on-chain by Tempo.
+
+<p align="center">
+  <a href="https://mpp.dev/extensions"><img src=".github/assets/mpp-listing.jpg" alt="@getpitstop/sdk on the mpp.dev extensions page" width="90%"></a>
+</p>
 
 ## ✨ What's inside
 
