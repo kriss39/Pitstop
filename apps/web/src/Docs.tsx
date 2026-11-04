@@ -262,7 +262,7 @@ export function Docs() {
                 <tr><td><code>LIFI_API_KEY</code></td><td>Optional; raises LI.FI rate limits</td><td>none</td></tr>
               </tbody>
             </table></div>
-            <Note>Keys live only on the agent’s machine, in <code>.pitstop/</code> (folder and files readable only by you) or its <code>.env</code>. Never commit or share them.</Note>
+            <Note>Keys live only on the agent’s machine, in <code>.pitstop/</code> (key files readable only by you) or its <code>.env</code>. Never commit or share them.</Note>
           </Section>
 
           <Section id="pay" title="Pay MPP services">
