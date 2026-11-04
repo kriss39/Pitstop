@@ -60,10 +60,10 @@ Tools:
 | Tool | Use it to |
 |---|---|
 | `get_balance` | See your stablecoin balances on Tempo |
-| `key_status` | See if your key is active, how much you may still spend today, and when it resets or expires |
+| `key_status` | See if your key is active, how much you may still spend today, when it resets or expires, and which services you may pay |
 | `fuel_quote` | Price a refuel from your home wallet (read only) |
 | `fuel_agent` | Refuel now from your home wallet on Base (spends real money; 0.01–5 USDC per call). Create the wallet once with `npx -y @getpitstop/mcp home-wallet` |
-| `list_mpp_services` | Find paid APIs on mpp.dev |
+| `list_mpp_services` | Find paid APIs on mpp.dev that you can pay on Tempo |
 | `guard_link` | Get the link your owner uses to raise or revoke your limit |
 
 ## 4. Before you spend
@@ -102,7 +102,7 @@ switched you off.
 ## 6. When you run low
 
 - Owner refuel from any chain: send your owner `https://fuel.pitstopgas.workers.dev/fuel?to=<AGENT_WALLET>`.
-- Self-refuel (if you have a home wallet): `fuel_agent` with 1–5 USDC, or `pnpm refill` /
+- Self-refuel (if you have a home wallet): `fuel_agent` with 0.01–5 USDC, or `pnpm refill` /
   `pnpm watch` in `examples/demo-agent`.
 
 ## Rules

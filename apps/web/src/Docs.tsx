@@ -65,8 +65,7 @@ const MCP_CONFIG = `{
       "args": ["-y", "@getpitstop/mcp"],
       "env": {
         "AGENT_WALLET": "0xYourAgentWallet",
-        "PITSTOP_AGENT_KEY": "0x… (only if you created the key on Guard)",
-        "PITSTOP_DIR": "/path/to/.pitstop"
+        "PITSTOP_AGENT_KEY": "0x… (only if you created the key on Guard)"
       }
     }
   }
@@ -212,7 +211,7 @@ export function Docs() {
             <ul className="doc-list">
               <li><b>At the limit</b>, Tempo refuses the payment (<code>SpendingLimitExceeded</code>). Nothing is spent.</li>
               <li><b>Change the limit</b> any time on Guard with “Set daily limit”.</li>
-              <li><b>Revoke</b> stops the key for good (<code>KeyAlreadyRevoked</code>). Create a new one on Guard, or with <code>pnpm key --new</code>.</li>
+              <li><b>Revoke</b> stops the key for good (<code>KeyAlreadyRevoked</code>). Create a new one on Guard, or with <code>npx -y @getpitstop/mcp key --new</code>.</li>
               <li><b>Several agents?</b> Guard keeps several owner wallets per device: <b>+ New wallet</b>, switch between them, or remove one from this device (it stays on Tempo; restore it from its backup).</li>
               <li><b>Fees</b> for these owner actions are paid in whichever stablecoin the wallet holds, USDC.e first.</li>
             </ul>
@@ -223,8 +222,17 @@ export function Docs() {
           </Section>
 
           <Section id="agent" title="Set up the agent">
+            <p>On the agent’s machine, no clone needed (Node 22+). Keys are saved in <code>~/.pitstop</code>, where the MCP server finds them:</p>
+            <div className="table-wrap"><table className="doc-table">
+              <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+              <tbody>
+                <tr><td><code>npx -y @getpitstop/mcp key</code></td><td>Creates the agent’s spending key and prints the Guard link for you.</td></tr>
+                <tr><td><code>npx -y @getpitstop/mcp key --new</code></td><td>Replaces a revoked or expired key.</td></tr>
+                <tr><td><code>npx -y @getpitstop/mcp home-wallet</code></td><td>Creates a small Base wallet the agent refuels itself from.</td></tr>
+              </tbody>
+            </table></div>
             <p>
-              From <code>examples/demo-agent</code> in the{' '}
+              To run the demo or write payment scripts, use <code>examples/demo-agent</code> in the{' '}
               <a href="https://github.com/kriss39/pitstop" target="_blank" rel="noreferrer">repo</a>, after <code>pnpm install && pnpm build</code>:
             </p>
             <div className="table-wrap"><table className="doc-table">
@@ -245,7 +253,7 @@ export function Docs() {
               <tbody>
                 <tr><td><code>AGENT_WALLET</code></td><td>The agent’s wallet (from Guard)</td><td>required</td></tr>
                 <tr><td><code>PITSTOP_AGENT_KEY</code></td><td>The agent’s key, if you created it on Guard</td><td><code>.pitstop/agent-key.json</code></td></tr>
-                <tr><td><code>PITSTOP_DIR</code></td><td>Folder for the key and home wallet files</td><td><code>./.pitstop</code></td></tr>
+                <tr><td><code>PITSTOP_DIR</code></td><td>Folder for the key and home wallet files</td><td><code>~/.pitstop</code> for npx (<code>./.pitstop</code> if it exists); <code>examples/demo-agent/.pitstop</code> for the demo</td></tr>
                 <tr><td><code>AGENT_TOKEN</code></td><td>Stablecoin the key is scoped to</td><td>USDCe</td></tr>
                 <tr><td><code>REFILL_THRESHOLD</code></td><td>Refill when fuel is below this (USDC)</td><td>1</td></tr>
                 <tr><td><code>REFILL_AMOUNT</code></td><td>How much to send per refill</td><td>2</td></tr>
@@ -254,7 +262,7 @@ export function Docs() {
                 <tr><td><code>LIFI_API_KEY</code></td><td>Optional; raises LI.FI rate limits</td><td>none</td></tr>
               </tbody>
             </table></div>
-            <Note>Keys live only on the agent’s machine, in <code>.pitstop/</code> or its <code>.env</code>. Never commit or share them.</Note>
+            <Note>Keys live only on the agent’s machine, in <code>.pitstop/</code> (folder and files readable only by you) or its <code>.env</code>. Never commit or share them.</Note>
           </Section>
 
           <Section id="pay" title="Pay MPP services">
@@ -273,16 +281,17 @@ export function Docs() {
           <Section id="mcp" title="Claude & Cursor (MCP)">
             <p>Add Pitstop as an MCP server, then ask in plain words: “What’s my agent’s balance?” or “Fuel my agent with 1 USDC”.</p>
             <Code>{'claude mcp add pitstop -e AGENT_WALLET=0x… -e PITSTOP_AGENT_KEY=0x… -- npx -y @getpitstop/mcp'}</Code>
+            <p>If the agent made its own key with <code>npx -y @getpitstop/mcp key</code>, leave out <code>PITSTOP_AGENT_KEY</code>.</p>
             <p>Claude Desktop, Cursor and other clients:</p>
             <Code>{MCP_CONFIG}</Code>
             <div className="table-wrap"><table className="doc-table">
               <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
               <tbody>
                 <tr><td><code>get_balance</code></td><td>Fuel on Tempo</td></tr>
-                <tr><td><code>key_status</code></td><td>Active, expired or revoked; limit left today, reset time, expiry</td></tr>
+                <tr><td><code>key_status</code></td><td>Active, expired or revoked; limit left today, reset time, expiry, which services it may pay</td></tr>
                 <tr><td><code>fuel_quote</code></td><td>Price of a refuel (read only)</td></tr>
-                <tr><td><code>fuel_agent</code></td><td>Refuel now from the home wallet (spends real money)</td></tr>
-                <tr><td><code>list_mpp_services</code></td><td>Find paid APIs</td></tr>
+                <tr><td><code>fuel_agent</code></td><td>Refuel now from the home wallet, 0.01–5 USDC (spends real money)</td></tr>
+                <tr><td><code>list_mpp_services</code></td><td>Find paid APIs the agent can pay on Tempo</td></tr>
                 <tr><td><code>guard_link</code></td><td>A link for the owner to raise or revoke the limit</td></tr>
               </tbody>
             </table></div>

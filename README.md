@@ -225,7 +225,7 @@ pnpm refill          # one refill check; pnpm watch keeps it running
 | `AGENT_WALLET` | The guarded Tempo wallet (the owner passkey's address) |
 | `PITSTOP_AGENT_KEY` | The agent's access key, if it was created in the browser; otherwise `.pitstop/agent-key.json` is used |
 | `AGENT_TOKEN` | Token the key may spend: `USDCe` (default; what MPP services charge), `PathUSD`, `USDT0` or `OUSD` |
-| `PITSTOP_DIR` | Folder for `agent-key.json` and `home-wallet.json` (default `./.pitstop`) |
+| `PITSTOP_DIR` | Folder for `agent-key.json` and `home-wallet.json` (default `examples/demo-agent/.pitstop`; the npx commands use `~/.pitstop`) |
 | `REFILL_THRESHOLD`, `REFILL_AMOUNT`, `REFILL_MAX_PER_DAY` | Auto-refill: refill below this, by this much, at most this per day (USDC) |
 | `PITSTOP_FEE` | Integrator fee on agent refills (default 0.001 = 0.1%; `0` turns it off) |
 | `LIFI_API_KEY` | Optional LI.FI API key for higher rate limits |
@@ -248,7 +248,7 @@ Message [@pitstop_alert_bot](https://t.me/pitstop_alert_bot) `/watch <wallet> [k
 
 - **Browser-created keys** exist only in the page's memory until you copy or download them. Clear your clipboard and delete the downloaded file once the key is on the agent's machine.
 - **The home wallet is a hot wallet** on the agent's machine. Fund it with a few dollars only; refills are capped per day, and a refill that was broadcast always counts against the cap, even if confirming it failed.
-- Keys on the agent machine live in `.pitstop/` (mode 600, git-ignored).
+- Keys on the agent machine live in `~/.pitstop/` (npx) or `.pitstop/` (repo), mode 600 and git-ignored. The agent can create its own key with `npx -y @getpitstop/mcp key`, so the secret never leaves its machine.
 
 </details>
 
