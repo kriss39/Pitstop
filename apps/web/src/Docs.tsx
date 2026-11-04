@@ -159,7 +159,7 @@ export function Docs() {
               </li>
               <li>
                 <b>Create the agent’s key.</b> Either press <b>Create a key here</b> on Guard and give the agent the config it shows, or run{' '}
-                <code>pnpm key</code> on the agent’s machine so the secret never leaves it. That prints a link that fills in Guard for you.
+                <code>npx -y @getpitstop/mcp key</code> on the agent’s machine so the secret never leaves it. That prints a link that fills in Guard for you.
               </li>
               <li>
                 <b>Authorize it.</b> On Guard, choose a daily limit and an end date, and confirm with your passkey.

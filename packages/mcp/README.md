@@ -24,15 +24,26 @@ Claude Desktop, Cursor and other clients:
 
 Get the wallet and key from the Guard page: https://fuel.pitstopgas.workers.dev/guard
 
+## Or let the agent make its own key
+
+The secret then never leaves the agent's machine:
+
+```sh
+npx -y @getpitstop/mcp key          # creates ~/.pitstop/agent-key.json and prints the Guard link for the owner
+npx -y @getpitstop/mcp home-wallet  # optional: a small Base wallet that fuel_agent refuels from
+```
+
+The server reads the same folder, so leave out `PITSTOP_AGENT_KEY`. `npx -y @getpitstop/mcp help` lists the commands.
+
 ## Tools
 
 | Tool | What it does |
 |---|---|
 | `get_balance` | Stablecoin balances of the agent's Tempo wallet |
-| `key_status` | Whether the key is active, how much it may still spend, and when that resets or expires |
+| `key_status` | Whether the key is active, how much it may still spend, when that resets or expires, and which payees it may pay |
 | `fuel_quote` | Prices a refuel from the home wallet (read only) |
-| `fuel_agent` | Refuels from the home wallet on Base (real funds, at most 5 USDC per call) |
-| `list_mpp_services` | Paid APIs from the mpp.dev registry |
+| `fuel_agent` | Refuels from the home wallet on Base (real funds, 0.01–5 USDC per call) |
+| `list_mpp_services` | Paid APIs from the mpp.dev registry that take Tempo payments |
 | `guard_link` | The link the owner uses to raise, change or revoke the limit |
 
 ## Environment
@@ -41,8 +52,10 @@ Get the wallet and key from the Guard page: https://fuel.pitstopgas.workers.dev/
 |---|---|
 | `AGENT_WALLET` | The agent's Tempo wallet |
 | `PITSTOP_AGENT_KEY` | Access key created on the Guard page |
-| `PITSTOP_DIR` | Folder with `agent-key.json` and `home-wallet.json` (default `./.pitstop`), used instead of `PITSTOP_AGENT_KEY` and for `fuel_agent` |
+| `PITSTOP_DIR` | Folder with `agent-key.json` and `home-wallet.json` (default `./.pitstop` if it exists, otherwise `~/.pitstop`), used instead of `PITSTOP_AGENT_KEY` and for `fuel_agent` |
 | `AGENT_TOKEN` | Token the key may spend (default `USDCe`) |
+| `REFILL_MAX_PER_DAY` | Most `fuel_agent` may send per UTC day, in USDC (default `6`) |
+| `LIFI_API_KEY` | Optional LI.FI key for higher rate limits |
 
 Source and docs: https://github.com/kriss39/pitstop
 

@@ -1,6 +1,6 @@
 {
   "name": "@getpitstop/mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "MCP server that lets AI agents refuel themselves on Tempo.",
   "license": "MIT",
   "keywords": [
@@ -27,7 +27,8 @@
   "files": [
     "dist",
     "src",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -35,10 +36,10 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@getpitstop/sdk": "workspace:*",
     "viem": "^2.57.2",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "engines": {
     "node": ">=22"

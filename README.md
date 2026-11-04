@@ -26,7 +26,7 @@
 
 ---
 
-AI agents now pay for APIs per call over [MPP](https://mpp.dev): 130 services on mpp.dev, 127 of them payable on Tempo, from Anthropic and OpenAI to Dune, Nansen and Exa. Tempo gives every wallet access keys with spending limits. What's still missing is everything around them:
+AI agents now pay for APIs per call over [MPP](https://mpp.dev): 139 services on mpp.dev, 136 of them payable on Tempo, from Anthropic and OpenAI to Dune, Nansen and Exa. Tempo gives every wallet access keys with spending limits. What's still missing is everything around them:
 
 - 💸 **The money is somewhere else.** Owners hold stablecoins and gas tokens on Solana, Base, Ethereum and other chains; the agent needs USDC.e on Tempo.
 - 👀 **Nobody is watching.** The agent runs dry halfway through a task, or burns its budget, and the owner finds out too late.
@@ -140,7 +140,7 @@ Every transfer routed through Pitstop is counted live, straight from LI.FI's rec
 **2. Give the agent a key.** Two ways:
 
 - **Create it in the browser** (fastest): on Guard, press *Create a key here*. The page hands you a ready-made `.env` or Claude/Cursor config with `PITSTOP_AGENT_KEY`. Nothing is stored or sent to a server.
-- **Let the agent make its own** (the secret never leaves its machine): run `pnpm key` in `examples/demo-agent`, or ask the agent for its `guard_link`. It prints a link that opens Guard with the key filled in.
+- **Let the agent make its own** (the secret never leaves its machine): run `npx -y @getpitstop/mcp key` on the agent's machine (or `pnpm key` in `examples/demo-agent`), or ask the agent for its `guard_link`. It prints a link that opens Guard with the key filled in.
 
 Then set a daily limit and authorize it with your passkey.
 
@@ -167,7 +167,7 @@ claude mcp add pitstop -e AGENT_WALLET=0x… -e PITSTOP_AGENT_KEY=0x… -- npx -
     "pitstop": {
       "command": "npx",
       "args": ["-y", "@getpitstop/mcp"],
-      "env": { "AGENT_WALLET": "0x…", "PITSTOP_AGENT_KEY": "0x…", "PITSTOP_DIR": "/path/to/.pitstop" }
+      "env": { "AGENT_WALLET": "0x…", "PITSTOP_AGENT_KEY": "0x…" }
     }
   }
 }
@@ -175,13 +175,22 @@ claude mcp add pitstop -e AGENT_WALLET=0x… -e PITSTOP_AGENT_KEY=0x… -- npx -
 
 </details>
 
+The same package sets up the agent's machine, no clone needed. Keys go to `~/.pitstop` (or `PITSTOP_DIR`), where the server finds them:
+
+```sh
+npx -y @getpitstop/mcp key          # the agent's own access key; prints the Guard link for the owner
+npx -y @getpitstop/mcp home-wallet  # optional: a small Base wallet for fuel_agent
+```
+
+With a key made this way, leave out `PITSTOP_AGENT_KEY`.
+
 | Tool | What it does |
 |---|---|
 | `get_balance` | Stablecoin balances of the agent's Tempo wallet |
-| `key_status` | Active / expired / revoked, limit left today, reset time, expiry |
+| `key_status` | Active / expired / revoked, limit left today, reset time, expiry, allowed payees |
 | `fuel_quote` | Read-only LI.FI quote from the home wallet |
-| `fuel_agent` | Refuel now (max 5 USDC per call, `REFILL_MAX_PER_DAY` per day, one at a time) |
-| `list_mpp_services` | Search mpp.dev for paid APIs |
+| `fuel_agent` | Refuel now (0.01–5 USDC per call, `REFILL_MAX_PER_DAY` per day, one at a time) |
+| `list_mpp_services` | Search mpp.dev for paid APIs the agent can pay on Tempo |
 | `guard_link` | Link for the owner to raise or revoke the limit |
 
 There is deliberately no tool to change limits: the agent can't loosen its own leash.

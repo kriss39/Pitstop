@@ -395,7 +395,7 @@ export function Guard() {
                 <div className="key-paths">
                   <button className="primary small-btn" onClick={createKeyHere} disabled={busy}>Create a key here</button>
                   <p className="swap-text small">
-                    Or let the agent make its own, so its secret never leaves its machine: run <code>pnpm key</code> there, or ask the agent
+                    Or let the agent make its own, so its secret never leaves its machine: run <code>npx -y @getpitstop/mcp key</code> there, or ask the agent
                     for its <code>guard_link</code>. The link opens this page with the key filled in.
                   </p>
                 </div>
@@ -559,7 +559,7 @@ export function Guard() {
         {deadKey && (
           <p className="swap-foot">
             {expired ? 'This key reached its end date.' : 'A revoked key stays revoked.'} Create a new key above, or run{' '}
-            <code>pnpm key --new</code> on the agent’s machine, then authorize it.
+            <code>npx -y @getpitstop/mcp key --new</code> on the agent’s machine, then authorize it.
           </p>
         )}
         <p className="swap-foot">

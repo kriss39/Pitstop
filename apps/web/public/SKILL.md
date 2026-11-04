@@ -14,7 +14,8 @@ Live app: https://fuel.pitstopgas.workers.dev · Code: https://github.com/kriss3
 ## 1. Install (once)
 
 Needs Node 22+. The MCP server (step 3) runs straight from npm with `npx -y @getpitstop/mcp`; nothing else
-to install. To write payment scripts (step 5) or make your own key, also clone the repo:
+to install, and `npx -y @getpitstop/mcp key` makes your own key. Only to write payment scripts (step 5), also
+clone the repo:
 
 ```sh
 git clone https://github.com/kriss39/pitstop ~/pitstop
@@ -27,8 +28,8 @@ Ask your owner to open https://fuel.pitstopgas.workers.dev/guard and either:
 
 - press **Create a key here** and give you the config it shows (it contains `AGENT_WALLET` and
   `PITSTOP_AGENT_KEY`), or
-- let you make your own key: run `pnpm key` in `~/pitstop/examples/demo-agent`, then send your owner the
-  link it prints. Your secret never leaves this machine.
+- let you make your own key: run `npx -y @getpitstop/mcp key`, then send your owner the link it prints.
+  The key is saved in `~/.pitstop` and your secret never leaves this machine.
 
 Put the values in `~/pitstop/.env`:
 
@@ -46,8 +47,8 @@ Never print, log or share `PITSTOP_AGENT_KEY`.
 claude mcp add pitstop -e AGENT_WALLET=0x... -e PITSTOP_AGENT_KEY=0x... -- npx -y @getpitstop/mcp
 ```
 
-If you made your own key with `pnpm key`, use `-e PITSTOP_DIR=$HOME/pitstop/examples/demo-agent/.pitstop` instead of
-`PITSTOP_AGENT_KEY`. For other clients, use this in their MCP config:
+If you made your own key with `npx -y @getpitstop/mcp key`, leave out `PITSTOP_AGENT_KEY`: the server reads
+`~/.pitstop`. (A key made with `pnpm key` in the repo: add `-e PITSTOP_DIR=$HOME/pitstop/examples/demo-agent/.pitstop`.) For other clients, use this in their MCP config:
 
 ```json
 { "mcpServers": { "pitstop": { "command": "npx", "args": ["-y", "@getpitstop/mcp"],
@@ -61,7 +62,7 @@ Tools:
 | `get_balance` | See your stablecoin balances on Tempo |
 | `key_status` | See if your key is active, how much you may still spend today, and when it resets or expires |
 | `fuel_quote` | Price a refuel from your home wallet (read only) |
-| `fuel_agent` | Refuel now from your home wallet on Base (spends real money; max 5 USDC per call) |
+| `fuel_agent` | Refuel now from your home wallet on Base (spends real money; 0.01–5 USDC per call). Create the wallet once with `npx -y @getpitstop/mcp home-wallet` |
 | `list_mpp_services` | Find paid APIs on mpp.dev |
 | `guard_link` | Get the link your owner uses to raise or revoke your limit |
 
