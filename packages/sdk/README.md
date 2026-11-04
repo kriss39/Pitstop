@@ -47,7 +47,7 @@ const quote = await fuelQuote({
 
 `executeFuel` sends it from a viem wallet, and `waitForFuel` follows it until it lands.
 
-Node helpers (keystore for agent keys and home wallets) are in `@getpitstop/sdk/node`.
+Node helpers are in `@getpitstop/sdk/node`: `keystore()` keeps the agent's access key and home wallet in `~/.pitstop` (or `./.pitstop`, or `PITSTOP_DIR`), folder mode 700, files mode 600.
 
 Full docs, the web app and the MCP server: https://github.com/kriss39/pitstop · https://fuel.pitstopgas.workers.dev
 

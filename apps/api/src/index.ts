@@ -22,7 +22,13 @@ app.get('/api/health', (c) => c.json({ ok: true, chainId: TEMPO_CHAIN_ID, regist
 app.get('/api/balance/:address', async (c) => {
   const address = c.req.param('address')
   if (!isAddress(address)) return c.json({ error: 'invalid address' }, 400)
-  const balances = await getBalance({ address })
+  let balances: Awaited<ReturnType<typeof getBalance>>
+  try {
+    balances = await getBalance({ address })
+  } catch {
+    // Every Tempo RPC failed: say so instead of Hono's bare 500.
+    return c.json({ error: 'Tempo RPC unavailable, try again shortly' }, 502, { 'cache-control': 'no-store' })
+  }
   return c.json({
     address,
     totalRaw: totalUsd(balances).toString(),

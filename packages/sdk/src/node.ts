@@ -1,21 +1,34 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { accessKeyFromPrivateKey, generateAccessKey, type GeneratedAccessKey } from './guard.js'
 import { generateHomeWallet, initialRefillState, type HomeWallet, type RefillState } from './refill.js'
 
 /**
- * Local keystore for an agent machine. Keys live in plain JSON files with mode 600 in
- * `dir` (default: `$PITSTOP_DIR` or `./.pitstop`). Keep that directory out of git.
+ * Where the keystore lives when no folder is given: `$PITSTOP_DIR`, else `./.pitstop` if it
+ * exists (the only default before 0.1.2), else `~/.pitstop`. The home folder means a key made
+ * in one terminal is found by an agent or MCP server started from any other folder.
+ */
+export function defaultKeystoreDir(): string {
+  if (process.env.PITSTOP_DIR) return process.env.PITSTOP_DIR
+  const local = resolve(process.cwd(), '.pitstop')
+  return existsSync(local) ? local : join(homedir(), '.pitstop')
+}
+
+/**
+ * Local keystore for an agent machine. Keys live in plain JSON files with mode 600, in a
+ * folder with mode 700 (default: see `defaultKeystoreDir`). Keep that folder out of git.
  * The access key can instead come from `$PITSTOP_AGENT_KEY` (a key made on the Guard page).
  */
-export function keystore(dir = process.env.PITSTOP_DIR ?? resolve(process.cwd(), '.pitstop')) {
+export function keystore(dir = defaultKeystoreDir()) {
   const path = (name: string) => join(dir, name)
 
   const read = <T>(name: string): T | undefined =>
     existsSync(path(name)) ? (JSON.parse(readFileSync(path(name), 'utf8')) as T) : undefined
 
   const write = (name: string, value: unknown) => {
-    mkdirSync(dirname(path(name)), { recursive: true })
+    // Only the owner may list or open the folder. (A folder that already exists keeps its mode.)
+    mkdirSync(dirname(path(name)), { recursive: true, mode: 0o700 })
     writeFileSync(path(name), JSON.stringify(value, null, 2) + '\n', { mode: 0o600 })
     chmodSync(path(name), 0o600)
   }
