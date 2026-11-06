@@ -5,11 +5,14 @@ export type { FuelTokenSymbol, TempoTokenSymbol } from './tokens.js'
 export { getBalance, totalUsd } from './balance.js'
 export type { GetBalanceParameters, TokenBalance } from './balance.js'
 export {
+  DEFAULT_MAX_LOSS,
   executeFuel,
   fuelQuote,
   getFuelStatus,
   LIFI_API_URL,
   LIFI_DIAMOND,
+  MAX_FEE,
+  MAX_SLIPPAGE,
   lifiDiamond,
   NATIVE_TOKEN,
   PITSTOP_FEE,
@@ -53,7 +56,7 @@ export {
   startAutoRefill,
 } from './refill.js'
 export type { HomeWallet, RefillConfig, RefillResult, RefillState } from './refill.js'
-export { listMppServices, MPP_SERVICES_URL } from './mpp.js'
+export { listMppServices, MAX_MPP_SERVICES, MPP_SERVICES_URL } from './mpp.js'
 export type { MppService } from './mpp.js'
 export { getRecentSpends, TEMPO_FEE_MANAGER } from './activity.js'
 export type { Spend } from './activity.js'

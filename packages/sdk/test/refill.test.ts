@@ -30,12 +30,41 @@ const config = {
 const HASH = `0x${'ab'.repeat(32)}` as const
 
 beforeEach(() => {
+  // A fresh home wallet per test: refillIfLow remembers what each home wallet sent in this process.
+  config.home = generateHomeWallet()
   agentBalance.mockResolvedValue(0n)
   executeFuel.mockReset().mockImplementation(async ({ onStep }) => {
     onStep({ step: 'send', hash: HASH })
     return HASH
   })
   waitForFuel.mockReset().mockResolvedValue({ status: 'DONE', receivedAmount: 1_990_000n })
+})
+
+describe('refillIfLow holds the cap under concurrency and bad state', () => {
+  it('lets only one of two concurrent refills send', async () => {
+    const big = { ...config, maxPerDay: config.amount }
+    const [a, b] = await Promise.all([refillIfLow(big), refillIfLow(big)])
+    expect(executeFuel).toHaveBeenCalledTimes(1)
+    expect([a.result.action, b.result.action].sort()).toEqual(['refilled', 'skipped'])
+  })
+
+  it('remembers what was sent even when the caller hands back a stale state', async () => {
+    const stale = initialRefillState()
+    await refillIfLow({ ...config, force: true }, stale)
+    const { result } = await refillIfLow({ ...config, force: true, maxPerDay: config.amount * 3n / 2n }, stale)
+    expect(result).toMatchObject({ action: 'skipped', reason: 'daily-cap' })
+    expect(executeFuel).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['a negative sentToday', { config: {}, state: { sentToday: '-5000000' } }],
+    ['a negative amount', { config: { amount: -1n }, state: {} }],
+    ['a zero amount', { config: { amount: 0n }, state: {} }],
+    ['a zero daily cap', { config: { maxPerDay: 0n }, state: {} }],
+  ])('refuses %s before sending anything', async (_name, over) => {
+    await expect(refillIfLow({ ...config, ...over.config }, { ...initialRefillState(), ...over.state })).rejects.toThrow()
+    expect(executeFuel).not.toHaveBeenCalled()
+  })
 })
 
 describe('refillIfLow', () => {

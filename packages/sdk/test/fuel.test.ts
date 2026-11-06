@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { fuelQuote, LIFI_DIAMOND, NATIVE_TOKEN, SOURCE_TOKENS, TEMPO_TOKENS } from '../src/index.js'
+import { bridgeCalldata } from './lifi-calldata.js'
 
 const AGENT = '0x9Bd4984986D273ee27077C42Fe63dFB712b50bC0'
 const SENDER = '0xFE99072AB3823d1873BB2caC339Ed326140fd169'
@@ -33,7 +35,7 @@ function lifiQuote(over: { action?: object; estimate?: object; tx?: object } = {
       gasCosts: [{ amount: '1400000000000', amountUSD: '0.0038', token: { symbol: 'ETH', decimals: 18 } }],
       ...over.estimate,
     },
-    transactionRequest: { to: LIFI_DIAMOND, data: '0xdeadbeef', value: '0', chainId: 8453, gasLimit: '300000', ...over.tx },
+    transactionRequest: { to: LIFI_DIAMOND, data: bridgeCalldata(AGENT), value: '0', chainId: 8453, gasLimit: '300000', ...over.tx },
   }
 }
 
@@ -74,6 +76,60 @@ describe('fuelQuote checks the route before anyone signs', () => {
     await expect(fuelQuote({ ...params, ...native })).resolves.toBeDefined()
     mockLifi(lifiQuote({ action, estimate: { approvalAddress: undefined }, tx: { value: '3000000000000000' } }))
     await expect(fuelQuote({ ...params, ...native })).rejects.toThrow(/more than the amount/)
+  })
+})
+
+describe('fuelQuote reads the Diamond calldata', () => {
+  it.each(['base-usdc', 'arb-usdc', 'base-eth', 'eth-usdt'])('accepts the real LI.FI route %s', async (name) => {
+    const q = JSON.parse(readFileSync(new URL(`./fixtures/lifi-${name}.json`, import.meta.url), 'utf8'))
+    mockLifi(q)
+    await expect(
+      fuelQuote({
+        fromChain: q.action.fromChainId,
+        fromToken: q.action.fromToken.address,
+        fromAmount: BigInt(q.action.fromAmount),
+        fromAddress: SENDER,
+        toAddress: AGENT,
+        fee: 0.001,
+      }),
+    ).resolves.toMatchObject({ toAddress: AGENT })
+  })
+
+  it.each([
+    ['pays someone else', { data: bridgeCalldata(SENDER) }, /pays 0xFE99/],
+    ['bridges to another chain', { data: bridgeCalldata(AGENT, { destinationChainId: 8453n }) }, /not Tempo/],
+    ['makes a destination call that never names the agent', { data: bridgeCalldata(SENDER, { hasDestinationCall: true }) }, /destination call/],
+    ['carries unreadable calldata', { data: '0xdeadbeef' }, /Could not read/],
+    ['carries non-hex calldata', { data: 'hello' }, /not hex/],
+    ['asks for an absurd gas limit', { gasLimit: '999999999999' }, /Gas limit/],
+  ])('rejects a Diamond call that %s', async (_name, tx, message) => {
+    mockLifi(lifiQuote({ tx }))
+    await expect(fuelQuote(params)).rejects.toThrow(message)
+  })
+})
+
+describe('fuelQuote refuses lossy routes and bad inputs', () => {
+  it('rejects a route whose guaranteed minimum loses more than 5%', async () => {
+    mockLifi(lifiQuote({ estimate: { toAmount: '4900000', toAmountMin: '4700000' } }))
+    await expect(fuelQuote(params)).rejects.toThrow(/loses too much/)
+  })
+
+  it('lets the caller widen the loss limit', async () => {
+    mockLifi(lifiQuote({ estimate: { toAmount: '4900000', toAmountMin: '4700000' } }))
+    await expect(fuelQuote({ ...params, maxLoss: 0.1 })).resolves.toBeDefined()
+  })
+
+  it.each([
+    ['a zero amount', { fromAmount: 0n }],
+    ['the zero address', { toAddress: '0x0000000000000000000000000000000000000000' }],
+    ['a 50% fee', { fee: 0.5 }],
+    ['NaN slippage', { slippage: NaN }],
+    ['an http LI.FI URL', { baseUrl: 'http://evil.example' }],
+  ])('rejects %s before calling LI.FI', async (_name, over) => {
+    const f = vi.fn()
+    vi.stubGlobal('fetch', f)
+    await expect(fuelQuote({ ...params, ...over } as typeof params)).rejects.toThrow()
+    expect(f).not.toHaveBeenCalled()
   })
 })
 

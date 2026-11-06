@@ -239,7 +239,7 @@ Message [@pitstop_alert_bot](https://t.me/pitstop_alert_bot) `/watch <wallet> [k
 ## 🔐 Security model
 
 - **Non-custodial.** Pitstop's server holds no keys and no funds. The Worker proxies LI.FI quotes for the website only (the API key stays server-side, and it always uses Pitstop's integrator id and fee), reads Solana balances, and sends alerts.
-- **Routes are checked before you sign.** `fuelQuote()` rejects a LI.FI route unless it ends at the agent's address on Tempo in the requested token, spends exactly the requested amount and token, calls the LI.FI Diamond, approves only the Diamond, and attaches no unexpected native coin. Approvals are for the exact amount.
+- **Routes are checked before you sign.** `fuelQuote()` rejects a LI.FI route unless it ends at the agent's address on Tempo in the requested token, spends exactly the requested amount and token, calls the LI.FI Diamond, approves only the Diamond, attaches no unexpected native coin, and guarantees at least 95% of the value sent (`maxLoss`). It also decodes the Diamond calldata, so the bridge's own receiver and destination chain must match. `executeFuel()` checks it all again before signing. Approvals are for the exact amount.
 - **The agent can spend only what the owner allowed.** Its access key is limited by the protocol (limit, token, end date). It can't authorize keys, raise limits or move funds past the limit.
 - **The owner passkey is the root.** Losing it means you can't change limits or revoke the key (the key still expires). Keep it in a synced passkey manager, save the backup Guard shows, and keep balances small. Passkeys are bound to the site's domain (`fuel.pitstopgas.workers.dev`).
 
@@ -248,7 +248,7 @@ Message [@pitstop_alert_bot](https://t.me/pitstop_alert_bot) `/watch <wallet> [k
 
 - **Browser-created keys** exist only in the page's memory until you copy or download them. Clear your clipboard and delete the downloaded file once the key is on the agent's machine.
 - **The home wallet is a hot wallet** on the agent's machine. Fund it with a few dollars only; refills are capped per day, and a refill that was broadcast always counts against the cap, even if confirming it failed.
-- Keys on the agent machine live in `~/.pitstop/` (npx) or `.pitstop/` (repo), mode 600 and git-ignored. The agent can create its own key with `npx -y @getpitstop/mcp key`, so the secret never leaves its machine.
+- Keys on the agent machine live in `~/.pitstop/` (npx) or `.pitstop/` (repo, via `PITSTOP_DIR`): folder mode 700, files mode 600, git-ignored. The MCP server never picks up a `./.pitstop` from the folder it starts in, so a cloned repo can't plant a key. The agent can create its own key with `npx -y @getpitstop/mcp key`, so the secret never leaves its machine.
 
 </details>
 

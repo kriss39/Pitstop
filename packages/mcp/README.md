@@ -52,10 +52,11 @@ The server reads the same folder, so leave out `PITSTOP_AGENT_KEY`. `npx -y @get
 |---|---|
 | `AGENT_WALLET` | The agent's Tempo wallet |
 | `PITSTOP_AGENT_KEY` | Access key created on the Guard page |
-| `PITSTOP_DIR` | Folder with `agent-key.json` and `home-wallet.json` (default `./.pitstop` if it exists, otherwise `~/.pitstop`), used instead of `PITSTOP_AGENT_KEY` and for `fuel_agent` |
+| `PITSTOP_DIR` | Folder with `agent-key.json` and `home-wallet.json` (default `~/.pitstop`; a `./.pitstop` in the working folder is used only if you point `PITSTOP_DIR` at it), used instead of `PITSTOP_AGENT_KEY` and for `fuel_agent` |
 | `AGENT_TOKEN` | Token the key may spend (default `USDCe`) |
 | `REFILL_MAX_PER_DAY` | Most `fuel_agent` may send per UTC day, in USDC (default `6`) |
 | `LIFI_API_KEY` | Optional LI.FI key for higher rate limits |
+| `PITSTOP_URL` | Site for the Guard links (must be https; default `https://fuel.pitstopgas.workers.dev`) |
 
 Source and docs: https://github.com/kriss39/pitstop
 

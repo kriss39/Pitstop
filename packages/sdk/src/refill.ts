@@ -61,7 +61,7 @@ export type RefillConfig = LifiOptions & {
 export type RefillState = { day: string; sentToday: string; lastRefillAt?: number }
 
 export type RefillResult =
-  | { action: 'skipped'; reason: 'above-threshold' | 'cooldown' | 'daily-cap'; balance: bigint }
+  | { action: 'skipped'; reason: 'above-threshold' | 'cooldown' | 'daily-cap' | 'in-progress'; balance: bigint }
   | { action: 'refilled'; balance: bigint; txHash: Hex; status: FuelStatus }
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -70,12 +70,28 @@ export function initialRefillState(): RefillState {
   return { day: today(), sentToday: '0' }
 }
 
+// Per home wallet, in this process: a refill in flight, and what was sent each UTC day. Callers pass
+// state by value, so two concurrent calls (or one with a stale copy) would otherwise both pass the cap.
+const inFlight = new Set<string>()
+const sentInProcess = new Map<string, { sent: bigint; at: number }>()
+
+function checkRefillInputs(config: RefillConfig, state: RefillState) {
+  const positive = (v: unknown) => typeof v === 'bigint' && v > 0n
+  if (!positive(config.amount)) throw new Error('amount must be a positive amount (6 decimals)')
+  if (!positive(config.maxPerDay)) throw new Error('maxPerDay must be a positive amount (6 decimals)')
+  if (typeof config.threshold !== 'bigint' || config.threshold < 0n) throw new Error('threshold must not be negative')
+  if (!/^\d{1,30}$/.test(String(state.sentToday))) throw new Error(`Refill state is corrupt: sentToday=${String(state.sentToday).slice(0, 40)}`)
+  if (state.lastRefillAt != null && !Number.isFinite(state.lastRefillAt)) throw new Error('Refill state is corrupt: lastRefillAt')
+}
+
 /** Checks the agent's Tempo balance and, if it is low, fuels it from the home wallet on Base. */
 export async function refillIfLow(
   config: RefillConfig,
   state: RefillState = initialRefillState(),
   onProgress?: (message: string) => void,
 ): Promise<{ result: RefillResult; state: RefillState }> {
+  checkRefillInputs(config, state)
+  const home = privateKeyToAccount(config.home.privateKey).address.toLowerCase()
   const log = onProgress ?? (() => {})
   const s: RefillState = state.day === today() ? { ...state } : { day: today(), sentToday: '0', lastRefillAt: state.lastRefillAt }
 
@@ -84,6 +100,31 @@ export async function refillIfLow(
   const balance = held!.raw
   if (!config.force && balance >= config.threshold)
     return { result: { action: 'skipped', reason: 'above-threshold', balance }, state: s }
+
+  // From here to the end, one refill per home wallet at a time. Taking the lock is synchronous,
+  // so a second call that got here concurrently is turned away before it reads the cap.
+  if (inFlight.has(home)) return { result: { action: 'skipped', reason: 'in-progress', balance }, state: s }
+  inFlight.add(home)
+  try {
+    return await refillLocked(config, s, home, token, balance, log)
+  } finally {
+    inFlight.delete(home)
+  }
+}
+
+async function refillLocked(
+  config: RefillConfig,
+  s: RefillState,
+  home: string,
+  token: FuelTokenSymbol,
+  balance: bigint,
+  log: (message: string) => void,
+): Promise<{ result: RefillResult; state: RefillState }> {
+  // A stale copy of the state can't undercount what this process already sent today.
+  const ledgerKey = `${home}:${s.day}`
+  const seen = sentInProcess.get(ledgerKey)
+  if (seen && seen.sent > BigInt(s.sentToday)) s.sentToday = seen.sent.toString()
+  if (seen && (s.lastRefillAt ?? 0) < seen.at) s.lastRefillAt = seen.at
 
   const cooldown = config.cooldownMs ?? 10 * 60_000
   if (!config.force && s.lastRefillAt && Date.now() - s.lastRefillAt < cooldown)
@@ -137,6 +178,7 @@ export async function refillIfLow(
   // so a slow or failed bridge check can't lead to a second send.
   s.sentToday = (BigInt(s.sentToday) + config.amount).toString()
   s.lastRefillAt = Date.now()
+  sentInProcess.set(ledgerKey, { sent: BigInt(s.sentToday), at: s.lastRefillAt })
 
   let status: FuelStatus
   try {

@@ -3,6 +3,10 @@ import {
   erc20Abi,
   type Account as ViemAccount,
   getAddress,
+  isAddress,
+  isAddressEqual,
+  maxUint256,
+  zeroAddress,
   type Address,
   type Hex,
   type PublicClient,
@@ -79,16 +83,35 @@ export type AuthorizeAgentKeyParameters = {
   /**
    * If set, the key may only pay these addresses (MPP service payees). Tempo enforces it
    * (TIP-1011): a transfer to anyone else reverts. Leave unset to allow any recipient.
+   * An empty list is refused, so a filter that matched nothing never turns into "anyone".
    */
   recipients?: Address[]
   client?: PublicClient
 }
 
+/** Keys may live at most this long (10 years); anything later is almost surely milliseconds, not seconds. */
+const MAX_KEY_LIFETIME = 10 * 365 * DAY_SECONDS
+
+function checkAddress(name: string, a: string) {
+  if (!isAddress(a)) throw new Error(`Invalid ${name} address: ${a}`)
+  if (isAddressEqual(a, zeroAddress)) throw new Error(`The ${name} is the zero address`)
+}
+
 /** Owner signs once: the agent key may spend up to `limit` of `token` per period until `expiry`. */
 export async function authorizeAgentKey(params: AuthorizeAgentKeyParameters): Promise<Hex> {
   const { owner, key, limit, token = TEMPO_TOKENS.USDCe, periodSeconds = DAY_SECONDS, expiry } = params
+  const now = Math.floor(Date.now() / 1000)
+  if (!Number.isSafeInteger(expiry) || expiry <= now) throw new Error('expiry must be a future time in Unix seconds')
+  if (expiry > now + MAX_KEY_LIFETIME) throw new Error('expiry is more than 10 years away; pass Unix seconds, not milliseconds')
+  if (typeof limit !== 'bigint' || limit <= 0n || limit > maxUint256) throw new Error('limit must be a positive amount in base units')
+  if (!Number.isSafeInteger(periodSeconds) || periodSeconds <= 0) throw new Error('periodSeconds must be a positive whole number')
+  checkAddress('key', key.address)
+  checkAddress('token', token)
+  if (params.recipients && params.recipients.length === 0)
+    throw new Error('recipients is empty; leave it unset to allow any recipient')
+  params.recipients?.forEach((a) => checkAddress('recipient', a))
   // MPP pays with transferWithMemo; plain transfer is allowed to the same recipients.
-  const recipients = params.recipients?.length ? [...new Set(params.recipients.map((a) => getAddress(a)))] : undefined
+  const recipients = params.recipients ? [...new Set(params.recipients.map((a) => getAddress(a)))] : undefined
   const scopes = recipients
     ? [Scopes.tip20(token).transferWithMemo({ recipients }), Scopes.tip20(token).transfer({ recipients })]
     : undefined
@@ -126,8 +149,13 @@ export async function updateAgentLimit(params: {
 }
 
 export type AgentKeyStatus = {
+  /** The key was authorized at some point. It may since have expired or been revoked: see `active`. */
   authorized: boolean
   revoked: boolean
+  /** Authorized, but its expiry has passed. */
+  expired: boolean
+  /** Authorized, not revoked and not expired: the key can spend now. */
+  active: boolean
   expiry: number
   spendPolicy: 'limited' | 'unlimited'
   remaining: bigint
@@ -174,9 +202,12 @@ export async function getAgentKeyStatus(params: {
   const limit = authorized
     ? await Actions.accessKey.getRemainingLimit(client as never, { account: params.wallet, accessKey: params.key, token })
     : { remaining: 0n, periodEnd: undefined }
+  const expired = authorized && meta.expiry <= BigInt(Math.floor(Date.now() / 1000))
   return {
     authorized,
     revoked: meta.isRevoked,
+    expired,
+    active: authorized && !meta.isRevoked && !expired,
     expiry: Number(meta.expiry),
     spendPolicy: meta.spendPolicy,
     remaining: limit.remaining,
@@ -196,6 +227,8 @@ export async function agentTransfer(params: {
   client?: PublicClient
 }): Promise<Hex> {
   const token = params.token ?? TEMPO_TOKENS.USDCe
+  if (typeof params.amount !== 'bigint' || params.amount <= 0n) throw new Error('amount must be a positive amount in base units')
+  checkAddress('recipient', params.to)
   const hash = await walletClient(params.account, token).writeContract({
     address: token,
     abi: erc20Abi,

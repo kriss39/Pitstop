@@ -1,7 +1,12 @@
 import {
+  decodeAbiParameters,
   erc20Abi,
   getAddress,
+  isAddress,
   isAddressEqual,
+  isHex,
+  slice,
+  zeroAddress,
   type Account,
   type Address,
   type Chain,
@@ -59,9 +64,109 @@ const NATIVE_TOKENS = new Set([
 export type LifiOptions = {
   /** LI.FI API key. Never ship it to a browser; use a proxy `baseUrl` there. */
   apiKey?: string
-  /** Defaults to https://li.quest/v1. */
+  /** Defaults to https://li.quest/v1. Must be https, a localhost URL, or a same-origin path like `/lifi/v1`. */
   baseUrl?: string
   integrator?: string
+  /** Per-request timeout for LI.FI calls. Defaults to 20 s. */
+  timeoutMs?: number
+}
+
+/** Upper bound for the integrator fee and the slippage a caller may ask for (5%). */
+export const MAX_FEE = 0.05
+export const MAX_SLIPPAGE = 0.05
+/** Default cap on what a route may lose between the value sent and the guaranteed minimum received (5%). */
+export const DEFAULT_MAX_LOSS = 0.05
+/** No fuel route needs more gas than this. */
+const MAX_GAS_LIMIT = 5_000_000n
+
+/** Source tokens counted as $1 when judging route loss (USDC on the chains Pitstop lists). */
+const DOLLAR_SOURCE_TOKENS = new Set(Object.values(SOURCE_TOKENS).map((t) => t.USDC.toLowerCase()))
+
+function checkFraction(name: string, value: number | undefined, max: number) {
+  if (value == null) return
+  if (!Number.isFinite(value) || value < 0 || value > max) throw new LifiError(`${name} must be between 0 and ${max}, got ${value}`)
+}
+
+function checkBaseUrl(baseUrl: string) {
+  if (baseUrl.startsWith('/') && !baseUrl.startsWith('//')) return
+  let url: URL
+  try {
+    url = new URL(baseUrl)
+  } catch {
+    throw new LifiError(`Invalid LI.FI baseUrl: ${baseUrl}`)
+  }
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local))
+    throw new LifiError('LI.FI baseUrl must use https (http is allowed only for localhost)')
+}
+
+/** The first argument of every LI.FI bridge facet call (ILiFi.BridgeData). */
+const BRIDGE_DATA = [
+  {
+    type: 'tuple',
+    components: [
+      { name: 'transactionId', type: 'bytes32' },
+      { name: 'bridge', type: 'string' },
+      { name: 'integrator', type: 'string' },
+      { name: 'referrer', type: 'address' },
+      { name: 'sendingAssetId', type: 'address' },
+      { name: 'receiver', type: 'address' },
+      { name: 'minAmount', type: 'uint256' },
+      { name: 'destinationChainId', type: 'uint256' },
+      { name: 'hasSourceSwaps', type: 'bool' },
+      { name: 'hasDestinationCall', type: 'bool' },
+    ],
+  },
+] as const
+
+/**
+ * Reads the Diamond call itself, not only LI.FI's description of it: the bridge must deliver on
+ * Tempo to `toAddress`. A route with a destination call must still name `toAddress` in its calldata.
+ */
+function checkBridgeCalldata(data: Hex, toAddress: Address) {
+  let bridge
+  try {
+    ;[bridge] = decodeAbiParameters(BRIDGE_DATA, slice(data, 4))
+  } catch {
+    throw new LifiError('Could not read the bridge details in the LI.FI transaction')
+  }
+  if (bridge.destinationChainId !== BigInt(TEMPO_CHAIN_ID))
+    throw new LifiError(`Transaction bridges to chain ${bridge.destinationChainId}, not Tempo`)
+  if (bridge.hasDestinationCall) {
+    if (!data.toLowerCase().includes(toAddress.slice(2).toLowerCase()))
+      throw new LifiError('Transaction makes a destination call that does not pay the agent')
+  } else if (!isAddressEqual(bridge.receiver, toAddress)) {
+    throw new LifiError(`Transaction pays ${bridge.receiver}, not ${toAddress}`)
+  }
+}
+
+/** Checks an EVM route when it is quoted and again right before it is signed. */
+function checkEvmRoute(r: {
+  fromChain: number
+  fromToken: string
+  fromAmount: bigint
+  toAddress: Address
+  to: string | undefined
+  data: string
+  value: bigint
+  chainId: number | undefined
+  gas?: bigint
+  approvalAddress?: string
+}) {
+  if (r.chainId !== r.fromChain) throw new LifiError(`Transaction is for chain ${r.chainId}, expected ${r.fromChain}`)
+  if (!r.to || !isAddress(r.to, { strict: false }) || !isAddressEqual(r.to, lifiDiamond(r.fromChain)))
+    throw new LifiError(`Transaction targets ${r.to}, not the LI.FI Diamond`)
+  if (!isHex(r.data) || r.data.length < 10) throw new LifiError('Transaction data is not hex calldata')
+  // Native coin attached to the call: none for token routes, at most the amount (plus 1%) for gas-token routes.
+  const native = NATIVE_TOKENS.has(r.fromToken.toLowerCase())
+  if (r.value < 0n) throw new LifiError('Transaction value is negative')
+  if (!native && r.value !== 0n) throw new LifiError(`Token route also asks for ${r.value} wei of the native coin`)
+  if (native && r.value > (r.fromAmount * 101n) / 100n) throw new LifiError(`Route asks for ${r.value} wei, more than the amount`)
+  if (r.gas != null && (r.gas <= 0n || r.gas > MAX_GAS_LIMIT)) throw new LifiError(`Gas limit ${r.gas} is out of range`)
+  // The token approval (if any) may only go to the same Diamond.
+  if (r.approvalAddress && (!isAddress(r.approvalAddress, { strict: false }) || !isAddressEqual(r.approvalAddress, lifiDiamond(r.fromChain))))
+    throw new LifiError(`Approval goes to ${r.approvalAddress}, not the LI.FI Diamond`)
+  checkBridgeCalldata(r.data, r.toAddress)
 }
 
 export type FuelQuoteParameters = LifiOptions & {
@@ -78,8 +183,13 @@ export type FuelQuoteParameters = LifiOptions & {
   toToken?: TempoTokenSymbol
   /** Max slippage as a decimal, e.g. 0.005 = 0.5%. */
   slippage?: number
-  /** Integrator fee as a decimal, e.g. 0.003 = 0.3%. */
+  /** Integrator fee as a decimal, e.g. 0.003 = 0.3%. At most MAX_FEE. */
   fee?: number
+  /**
+   * Refuse routes whose guaranteed minimum is worth less than (1 - maxLoss) of what is sent,
+   * in dollars. Defaults to DEFAULT_MAX_LOSS (5%). Pass 1 to turn the check off.
+   */
+  maxLoss?: number
 }
 
 export type EvmTransactionRequest = {
@@ -154,10 +264,12 @@ export class LifiError extends Error {
 }
 
 async function lifiGet<T>(path: string, query: Record<string, string>, opts: LifiOptions): Promise<T> {
-  const url = `${opts.baseUrl ?? LIFI_API_URL}${path}?${new URLSearchParams(query)}`
+  const base = opts.baseUrl ?? LIFI_API_URL
+  checkBaseUrl(base)
+  const url = `${base}${path}?${new URLSearchParams(query)}`
   const headers: Record<string, string> = { accept: 'application/json' }
   if (opts.apiKey) headers['x-lifi-api-key'] = opts.apiKey
-  const res = await fetch(url, { headers })
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(opts.timeoutMs ?? 20_000) })
   const body = (await res.json().catch(() => ({}))) as { message?: string; code?: number }
   if (!res.ok) throw new LifiError(body.message ?? `LI.FI request failed (${res.status})`, res.status, body.code)
   return body as T
@@ -239,7 +351,10 @@ function toCosts(q: RawQuote, integratorFee?: number): FuelCost[] {
 }
 
 const sumUsd = (items?: { amountUSD?: string }[]) =>
-  (items ?? []).reduce((sum, item) => sum + Number(item.amountUSD ?? 0), 0)
+  (items ?? []).reduce((sum, item) => {
+    const usd = Number(item.amountUSD ?? 0)
+    return Number.isFinite(usd) ? sum + usd : sum
+  }, 0)
 
 /**
  * Asks LI.FI for a one-step route that delivers a Tempo stablecoin to the agent.
@@ -247,7 +362,14 @@ const sumUsd = (items?: { amountUSD?: string }[]) =>
  * call the LI.FI Diamond on the source chain.
  */
 export async function fuelQuote(params: FuelQuoteParameters): Promise<FuelQuote> {
+  if (typeof params.fromAmount !== 'bigint' || params.fromAmount <= 0n) throw new LifiError('fromAmount must be a positive bigint')
+  if (!isAddress(params.toAddress, { strict: false }) || isAddressEqual(params.toAddress, zeroAddress))
+    throw new LifiError(`Invalid agent address ${params.toAddress}`)
+  checkFraction('fee', params.fee, MAX_FEE)
+  checkFraction('slippage', params.slippage, MAX_SLIPPAGE)
+  checkFraction('maxLoss', params.maxLoss, 1)
   const toToken = TEMPO_TOKENS[params.toToken ?? 'USDCe']
+  if (!toToken) throw new LifiError(`Unknown Tempo token ${params.toToken}`)
   const query: Record<string, string> = {
     fromChain: String(params.fromChain),
     toChain: String(TEMPO_CHAIN_ID),
@@ -285,25 +407,41 @@ export async function fuelQuote(params: FuelQuoteParameters): Promise<FuelQuote>
     if (tx.to) throw new LifiError('Expected a serialized Solana transaction')
     transactionRequest = { kind: 'solana', data: tx.data }
   } else {
-    if (tx.chainId !== params.fromChain) throw new LifiError(`Transaction is for chain ${tx.chainId}, expected ${params.fromChain}`)
-    if (!tx.to || !isAddressEqual(tx.to as Address, lifiDiamond(params.fromChain)))
-      throw new LifiError(`Transaction targets ${tx.to}, not the LI.FI Diamond`)
-    // Native coin attached to the call: none for token routes, at most the amount (plus 1%) for gas-token routes.
     const value = BigInt(tx.value ?? 0)
-    const native = NATIVE_TOKENS.has(params.fromToken.toLowerCase())
-    if (!native && value !== 0n) throw new LifiError(`Token route also asks for ${value} wei of the native coin`)
-    if (native && value > (params.fromAmount * 101n) / 100n) throw new LifiError(`Route asks for ${value} wei, more than the amount`)
-    // The token approval (if any) may only go to the same Diamond.
-    if (q.estimate.approvalAddress && !isAddressEqual(q.estimate.approvalAddress as Address, lifiDiamond(params.fromChain)))
-      throw new LifiError(`Approval goes to ${q.estimate.approvalAddress}, not the LI.FI Diamond`)
-    transactionRequest = {
-      kind: 'evm',
-      to: getAddress(tx.to),
-      data: tx.data as Hex,
-      value: BigInt(tx.value ?? 0),
+    const gas = tx.gasLimit ? BigInt(tx.gasLimit) : undefined
+    checkEvmRoute({
+      fromChain: params.fromChain,
+      fromToken: params.fromToken,
+      fromAmount: params.fromAmount,
+      toAddress: params.toAddress,
+      to: tx.to,
+      data: tx.data,
+      value,
       chainId: tx.chainId,
-      gas: tx.gasLimit ? BigInt(tx.gasLimit) : undefined,
-    }
+      gas,
+      approvalAddress: q.estimate.approvalAddress,
+    })
+    transactionRequest = { kind: 'evm', to: getAddress(tx.to!), data: tx.data as Hex, value, chainId: tx.chainId!, gas }
+  }
+
+  // Route quality: what is guaranteed to arrive against what is sent, in dollars.
+  // Tempo stablecoins are $1 with 6 decimals; USDC sources are $1; other sources use LI.FI's USD estimate.
+  const toAmount = BigInt(q.estimate.toAmount)
+  const toAmountMin = BigInt(q.estimate.toAmountMin)
+  if (toAmountMin <= 0n || toAmountMin > toAmount) throw new LifiError(`Route minimum ${toAmountMin} is out of range`)
+  if (params.slippage != null && toAmountMin * 10_000n < toAmount * BigInt(Math.floor((1 - params.slippage - 0.001) * 10_000)))
+    throw new LifiError('Route minimum is below the requested slippage')
+  const dollarSource = DOLLAR_SOURCE_TOKENS.has(params.fromToken.toLowerCase()) && q.action.fromToken.decimals === 6
+  const sentUsd = dollarSource ? Number(params.fromAmount) / 1e6 : Number(q.estimate.fromAmountUSD)
+  if (Number.isFinite(sentUsd) && sentUsd > 0) {
+    const maxLoss = params.maxLoss ?? DEFAULT_MAX_LOSS
+    const minUsd = Number(toAmountMin) / 1e6
+    if (minUsd < sentUsd * (1 - maxLoss))
+      throw new LifiError(
+        `Route loses too much: sends $${sentUsd.toFixed(2)}, guarantees only $${minUsd.toFixed(2)} (limit ${(maxLoss * 100).toFixed(1)}%)`,
+      )
+  } else if (!dollarSource) {
+    throw new LifiError('LI.FI gave no USD value for the amount sent, so the route loss cannot be checked')
   }
 
   return {
@@ -314,8 +452,8 @@ export async function fuelQuote(params: FuelQuoteParameters): Promise<FuelQuote>
     fromAmount: BigInt(q.action.fromAmount),
     toToken: { ...q.action.toToken, address: getAddress(q.action.toToken.address) },
     toAddress: getAddress(q.action.toAddress),
-    toAmount: BigInt(q.estimate.toAmount),
-    toAmountMin: BigInt(q.estimate.toAmountMin),
+    toAmount,
+    toAmountMin,
     fromAmountUSD: q.estimate.fromAmountUSD != null ? Number(q.estimate.fromAmountUSD) : undefined,
     toAmountUSD: q.estimate.toAmountUSD != null ? Number(q.estimate.toAmountUSD) : undefined,
     durationSeconds: q.estimate.executionDuration,
@@ -406,6 +544,20 @@ export async function executeFuel(params: {
   const tx = quote.transactionRequest
   if (tx.kind !== 'evm') throw new Error('executeFuel signs EVM routes; sign Solana routes with the Solana wallet')
   if (!chain || chain.id !== quote.fromChain) throw new Error(`Public client must be on chain ${quote.fromChain}`)
+  // A quote is a plain object that may have been serialized, cached or edited since fuelQuote checked it.
+  checkEvmRoute({
+    fromChain: quote.fromChain,
+    fromToken: quote.fromToken.address,
+    fromAmount: quote.fromAmount,
+    toAddress: quote.toAddress,
+    to: tx.to,
+    data: tx.data,
+    value: tx.value,
+    chainId: tx.chainId,
+    gas: tx.gas,
+    approvalAddress: quote.approvalAddress,
+  })
+  if (quote.fromAmount <= 0n) throw new LifiError('Quote amount must be positive')
 
   if (!NATIVE_TOKENS.has(quote.fromToken.address.toLowerCase()) && quote.approvalAddress) {
     const token = getAddress(quote.fromToken.address)

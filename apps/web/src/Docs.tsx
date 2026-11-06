@@ -253,7 +253,7 @@ export function Docs() {
               <tbody>
                 <tr><td><code>AGENT_WALLET</code></td><td>The agent’s wallet (from Guard)</td><td>required</td></tr>
                 <tr><td><code>PITSTOP_AGENT_KEY</code></td><td>The agent’s key, if you created it on Guard</td><td><code>.pitstop/agent-key.json</code></td></tr>
-                <tr><td><code>PITSTOP_DIR</code></td><td>Folder for the key and home wallet files</td><td><code>~/.pitstop</code> for npx (<code>./.pitstop</code> if it exists); <code>examples/demo-agent/.pitstop</code> for the demo</td></tr>
+                <tr><td><code>PITSTOP_DIR</code></td><td>Folder for the key and home wallet files</td><td><code>~/.pitstop</code> for npx (a <code>./.pitstop</code> is used only if you set this); <code>examples/demo-agent/.pitstop</code> for the demo</td></tr>
                 <tr><td><code>AGENT_TOKEN</code></td><td>Stablecoin the key is scoped to</td><td>USDCe</td></tr>
                 <tr><td><code>REFILL_THRESHOLD</code></td><td>Refill when fuel is below this (USDC)</td><td>1</td></tr>
                 <tr><td><code>REFILL_AMOUNT</code></td><td>How much to send per refill</td><td>2</td></tr>
