@@ -6,7 +6,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { encodeAbiParameters, type Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 /** Diamond calldata whose BridgeData pays `receiver` on Tempo (what fuelQuote decodes). */
 const bridgeCalldata = (receiver: Address) =>
@@ -19,6 +19,8 @@ const bridgeCalldata = (receiver: Address) =>
 
 // Red-team suite. Each test asserts the SECURE behaviour: a failing test is an open hole.
 // The server runs as a child process with fetch replaced by ./net-mock.mjs (no network).
+// Several tests start it more than once, which takes longer than vitest's 5 s default on CI runners.
+vi.setConfig({ testTimeout: 60_000 })
 const bin = join(import.meta.dirname, '..', 'dist', 'index.js')
 const mock = join(import.meta.dirname, 'net-mock.mjs')
 const WALLET = '0x00000000000000000000000000000000000A9E17'
