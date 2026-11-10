@@ -26,7 +26,7 @@
 
 ---
 
-AI agents now pay for APIs per call over [MPP](https://mpp.dev): 139 services on mpp.dev, 136 of them payable on Tempo, from Anthropic and OpenAI to Dune, Nansen and Exa. Tempo gives every wallet access keys with spending limits. What's still missing is everything around them:
+AI agents now pay for APIs per call over [MPP](https://mpp.dev/extensions/third-party): 139 services on mpp.dev, 136 of them payable on Tempo, from Anthropic and OpenAI to Dune, Nansen and Exa. Tempo gives every wallet access keys with spending limits. What's still missing is everything around them:
 
 - 💸 **The money is somewhere else.** Owners hold stablecoins and gas tokens on Solana, Base, Ethereum and other chains; the agent needs USDC.e on Tempo.
 - 👀 **Nobody is watching.** The agent runs dry halfway through a task, or burns its budget, and the owner finds out too late.
