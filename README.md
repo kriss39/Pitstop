@@ -43,10 +43,10 @@ AI agents now pay for APIs per call over [MPP](https://mpp.dev): 139 services on
 
 ## 🏆 Listed on mpp.dev
 
-Pitstop is an official extension on [MPP's extensions page](https://mpp.dev/extensions). The Tempo team reviewed and merged it on 2026-11-03 ([tempoxyz/mpp#1153](https://github.com/tempoxyz/mpp/pull/1153)). Of the six listed extensions, it's the only one that funds an agent's wallet from other chains and caps what its key can spend, enforced on-chain by Tempo.
+Pitstop is an official extension on [MPP's extensions page](https://mpp.dev/extensions/third-party). The Tempo team reviewed and merged it on 2026-11-03 ([tempoxyz/mpp#1153](https://github.com/tempoxyz/mpp/pull/1153)). Of the six listed extensions, it's the only one that funds an agent's wallet from other chains and caps what its key can spend, enforced on-chain by Tempo.
 
 <p align="center">
-  <a href="https://mpp.dev/extensions"><img src=".github/assets/mpp-listing.jpg" alt="@getpitstop/sdk on the mpp.dev extensions page" width="90%"></a>
+  <a href="https://mpp.dev/extensions/third-party"><img src=".github/assets/mpp-listing.jpg" alt="@getpitstop/sdk on the mpp.dev extensions page" width="90%"></a>
 </p>
 
 ## ✨ What's inside
